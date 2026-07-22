@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --color-neon-blue: #00e5ff;
+  --neon-glow-opacity-multiplier: 1.0;
+  --neon-glow-blur-multiplier: 1.0;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #fcfcfc;
+  color: #1a1a1a;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+body.dark {
+  background-color: #0b0f19;
+  color: #f1f5f9;
+}
+
+@layer utilities {
+  .neon-border {
+    box-shadow: 0 0 calc(10px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(20% * var(--neon-glow-opacity-multiplier)), transparent), 
+                inset 0 0 calc(10px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(10% * var(--neon-glow-opacity-multiplier)), transparent);
+    border: 1.5px solid color-mix(in srgb, var(--color-neon-blue) calc(40% * var(--neon-glow-opacity-multiplier)), transparent);
+  }
+
+  .neon-border-glowing {
+    box-shadow: 0 0 calc(15px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(40% * var(--neon-glow-opacity-multiplier)), transparent), 
+                inset 0 0 calc(8px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(20% * var(--neon-glow-opacity-multiplier)), transparent);
+    border: 2px solid color-mix(in srgb, var(--color-neon-blue) calc(80% * var(--neon-glow-opacity-multiplier)), transparent);
+    animation: neon-pulse 2s infinite alternate;
+  }
+
+  .neon-text-glow {
+    text-shadow: 0 0 calc(8px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(60% * var(--neon-glow-opacity-multiplier)), transparent);
+  }
+
+  .neon-light-accent {
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-neon-blue) calc(80% * var(--neon-glow-opacity-multiplier)), transparent), transparent);
+    background-size: 200% 100%;
+    animation: neon-wave 2s infinite linear;
+  }
+
+  .bento-card {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .dark .bento-card {
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .bento-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--color-neon-blue) calc(30% * var(--neon-glow-opacity-multiplier)), transparent);
+    box-shadow: 0 8px calc(30px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(8% * var(--neon-glow-opacity-multiplier)), transparent);
+  }
+}
+
+@keyframes neon-pulse {
+  0% {
+    box-shadow: 0 0 calc(10px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(30% * var(--neon-glow-opacity-multiplier)), transparent), 
+                inset 0 0 calc(6px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(10% * var(--neon-glow-opacity-multiplier)), transparent);
+    border-color: color-mix(in srgb, var(--color-neon-blue) calc(50% * var(--neon-glow-opacity-multiplier)), transparent);
+  }
+  100% {
+    box-shadow: 0 0 calc(20px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(60% * var(--neon-glow-opacity-multiplier)), transparent), 
+                inset 0 0 calc(12px * var(--neon-glow-blur-multiplier)) color-mix(in srgb, var(--color-neon-blue) calc(30% * var(--neon-glow-opacity-multiplier)), transparent);
+    border-color: var(--color-neon-blue);
+  }
+}
+
+@keyframes neon-wave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.4);
+}
+

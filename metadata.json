@@ -1,0 +1,6 @@
+{
+  "name": "CORE AI",
+  "description": "An intelligent AI platform designed to analyze user ideas, evaluate their global-level potential, and generate prototypes with step-by-step guidance.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

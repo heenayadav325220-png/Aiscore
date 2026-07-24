@@ -9,25 +9,19 @@ import {
   Image as ImageIcon,
   Volume2,
   VolumeX,
-  PlayCircle,
   Sparkles,
   Lightbulb,
   Code,
   FileText,
-  User,
   CheckCircle,
   X,
-  Trash2,
   MessageSquare,
-  Download,
   FileJson,
   Printer,
   Copy,
   Check,
   AlertTriangle,
   Keyboard,
-  Bold,
-  Italic,
   Sun,
   Moon,
   Tag,
@@ -46,8 +40,14 @@ import {
   Rocket,
   Cpu,
   Server,
-  Zap
+  Zap,
+  Globe,
+  Trash2,
+  Plus
 } from "lucide-react";
+import { AppLanguage } from "./types";
+import { LANGUAGE_OPTIONS, TRANSLATIONS, getLanguageInstruction } from "./lib/translations";
+
 
 import { exportChatToHtml, exportChatToJson } from "./lib/exportUtils";
 import {
@@ -71,7 +71,8 @@ import {
   UIMode,
   CustomInstructions,
   ThemeSettings,
-  ChatSession
+  ChatSession,
+  MarketAnalysisReport
 } from "./types";
 
 import Sidebar from "./components/Sidebar";
@@ -80,6 +81,7 @@ import PrototypeEngine from "./components/PrototypeEngine";
 import WritingAssistant from "./components/WritingAssistant";
 import ImageGenerator from "./components/ImageGenerator";
 import { ChatMessage as ChatMessageComponent } from "./components/ChatMessage";
+import { MarketAnalysisModal } from "./components/MarketAnalysisReportView";
 import {
   ChatSkeleton,
   ScorecardSkeleton,
@@ -211,6 +213,7 @@ export default function App() {
   // Active items being focused in sub-views
   const [activeEvaluation, setActiveEvaluation] = useState<IdeaEvaluation | null>(null);
   const [activeGuidance, setActiveGuidance] = useState<PrototypeGuidance | null>(null);
+  const [activeMarketReport, setActiveMarketReport] = useState<MarketAnalysisReport | null>(null);
 
   // Custom Preferences
   const [customInstructions, setCustomInstructions] = useState<CustomInstructions>({
@@ -244,6 +247,22 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Multilingual / App Language state with persistence
+  const [currentLanguage, setCurrentLanguage] = useState<AppLanguage>(() => {
+    const saved = localStorage.getItem("core_ai_language");
+    if (saved && (saved === "en" || saved === "hi" || saved === "hinglish" || saved === "es" || saved === "fr" || saved === "de" || saved === "ja")) {
+      return saved as AppLanguage;
+    }
+    return "en";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("core_ai_language", currentLanguage);
+  }, [currentLanguage]);
+
+  const t = TRANSLATIONS[currentLanguage] || TRANSLATIONS.en;
+
+
   // Chat sessions state
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
@@ -254,6 +273,7 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
 
   // Loading/Processing flags
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -288,6 +308,7 @@ export default function App() {
   const [pinnedViewMode, setPinnedViewMode] = useState<"list" | "grid">("list");
   const [customPinnedOrder, setCustomPinnedOrder] = useState<string[]>([]);
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState<boolean>(true);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ isOpen: boolean; sessionId: string; title: string } | null>(null);
 
   const handleCopyAllPinnedMessages = (pinnedMsgs: ChatMessage[]) => {
     if (pinnedMsgs.length === 0) return;
@@ -634,21 +655,52 @@ export default function App() {
             const unsavedEmptySessions = prevSessions.filter(
               (p) => p.messages.length === 0 && !firestoreSessions.some((f) => f.id === p.id)
             );
-            return [...unsavedEmptySessions, ...firestoreSessions];
+            const combined = [...unsavedEmptySessions, ...firestoreSessions];
+            if (combined.length === 0) {
+              const fallback: ChatSession = {
+                id: "session_" + Date.now(),
+                title: "New Conversation",
+                messages: [],
+                activeMode: "automatic",
+                timestamp: new Date().toLocaleTimeString(),
+              };
+              setActiveSessionId(fallback.id);
+              return [fallback];
+            }
+            return combined;
           });
         }
-      } else if (!hasInitializedSessionsRef.current) {
-        hasInitializedSessionsRef.current = true;
-        // No remote sessions found on initial load: create first empty session
-        const newEmpty: ChatSession = {
-          id: "session_" + Date.now(),
-          title: "New Conversation",
-          messages: [],
-          activeMode: "automatic",
-          timestamp: new Date().toLocaleTimeString(),
-        };
-        setActiveSessionId(newEmpty.id);
-        setChatSessions([newEmpty]);
+      } else {
+        if (!hasInitializedSessionsRef.current) {
+          hasInitializedSessionsRef.current = true;
+          const newEmpty: ChatSession = {
+            id: "session_" + Date.now(),
+            title: "New Conversation",
+            messages: [],
+            activeMode: "automatic",
+            timestamp: new Date().toLocaleTimeString(),
+          };
+          setActiveSessionId(newEmpty.id);
+          setChatSessions([newEmpty]);
+        } else {
+          setChatSessions((prevSessions) => {
+            const unsavedEmptySessions = prevSessions.filter(
+              (p) => p.messages.length === 0
+            );
+            if (unsavedEmptySessions.length === 0) {
+              const fallback: ChatSession = {
+                id: "session_" + Date.now(),
+                title: "New Conversation",
+                messages: [],
+                activeMode: "automatic",
+                timestamp: new Date().toLocaleTimeString(),
+              };
+              setActiveSessionId(fallback.id);
+              return [fallback];
+            }
+            return unsavedEmptySessions;
+          });
+        }
       }
     });
 
@@ -967,6 +1019,54 @@ export default function App() {
     setActiveSessionId(newSession.id);
   };
 
+  // Open delete confirm modal
+  const handleOpenDeleteModal = (sessionId?: string) => {
+    const targetId = sessionId || activeSessionId;
+    const session = chatSessions.find((s) => s.id === targetId);
+    if (!session) return;
+    setDeleteConfirmModal({
+      isOpen: true,
+      sessionId: session.id,
+      title: session.title || "Conversation",
+    });
+  };
+
+  // Delete a chat thread
+  const handleDeleteSession = (sessionId: string) => {
+    playUiSound("toggle", soundEffectsEnabled);
+    setChatSessions((prev) => {
+      const filtered = prev.filter((s) => s.id !== sessionId);
+      if (filtered.length === 0) {
+        const newSession: ChatSession = {
+          id: "session_" + Date.now(),
+          title: "New Conversation",
+          messages: [],
+          activeMode: "automatic",
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        setActiveSessionId(newSession.id);
+        return [newSession];
+      }
+      if (sessionId === activeSessionId) {
+        setActiveSessionId(filtered[0].id);
+      }
+      return filtered;
+    });
+
+    try {
+      const saved = localStorage.getItem("core_ai_sessions");
+      if (saved) {
+        const parsed: ChatSession[] = JSON.parse(saved);
+        const remaining = parsed.filter((s) => s.id !== sessionId);
+        localStorage.setItem("core_ai_sessions", JSON.stringify(remaining));
+      }
+    } catch (e) {
+      console.warn("Storage update error on session delete:", e);
+    }
+
+    deleteChatSessionFromFirestore(sessionId);
+  };
+
   // Ensure there's always at least one active session
   const chatSessionsCount = chatSessions.length;
   useEffect(() => {
@@ -1017,8 +1117,35 @@ export default function App() {
     } else {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      
+      // Set speech recognition language dynamically based on active app language
+      if (currentLanguage === "hi" || currentLanguage === "hinglish") {
+        speechRecognitionRef.current.lang = "hi-IN";
+      } else if (currentLanguage === "es") {
+        speechRecognitionRef.current.lang = "es-ES";
+      } else if (currentLanguage === "fr") {
+        speechRecognitionRef.current.lang = "fr-FR";
+      } else if (currentLanguage === "de") {
+        speechRecognitionRef.current.lang = "de-DE";
+      } else if (currentLanguage === "ja") {
+        speechRecognitionRef.current.lang = "ja-JP";
+      } else {
+        speechRecognitionRef.current.lang = "en-US";
+      }
+
       speechRecognitionRef.current.start();
     }
+  };
+
+  // Helper to sanitize markdown and code blocks out of speech synthesis text
+  const sanitizeTextForSpeech = (rawText: string): string => {
+    return rawText
+      .replace(/```[\s\S]*?```/g, " [कोड या डेटा] ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/[*#_~>]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   };
 
   // Speak response out loud using Gemini TTS if enabled, or browser SpeechSynthesis as fallback
@@ -1042,6 +1169,7 @@ export default function App() {
     }
 
     setIsSpeaking(true);
+    const cleanSpeechText = sanitizeTextForSpeech(text);
 
     try {
       // Lazy attempt to use Gemini high-fidelity TTS route
@@ -1049,8 +1177,9 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: text.slice(0, 300), // Limit text payload size for faster latency
+          text: cleanSpeechText.slice(0, 500), // Limit text payload size for faster latency
           mode: getActiveMode() === "guider" ? "robotic" : "human",
+          language: currentLanguage,
         }),
       });
 
@@ -1147,29 +1276,63 @@ export default function App() {
               source.start();
             } catch (pcmErr) {
               console.error("Raw PCM playback failed, falling back to Web Speech Synthesis:", pcmErr);
-              speakWebFallback(text);
+              speakWebFallback(cleanSpeechText);
             }
           }
         );
       } else {
-        speakWebFallback(text);
+        speakWebFallback(cleanSpeechText);
       }
     } catch (e) {
       console.warn("Express TTS not responsive, falling back to Web Speech Synthesis:", e);
-      speakWebFallback(text);
+      speakWebFallback(cleanSpeechText);
     }
   };
 
   const speakWebFallback = (text: string) => {
-    const utterance = new SpeechSynthesisUtterance(text.slice(0, 500));
+    window.speechSynthesis.cancel();
+    const clean = sanitizeTextForSpeech(text).slice(0, 500);
+    const utterance = new SpeechSynthesisUtterance(clean);
     const mode = getActiveMode();
 
+    const isHindi = /[\u0900-\u097F]/.test(clean) || currentLanguage === "hi" || currentLanguage === "hinglish";
+
+    if (isHindi) {
+      utterance.lang = "hi-IN";
+    } else {
+      utterance.lang = currentLanguage === "es" ? "es-ES" : currentLanguage === "fr" ? "fr-FR" : currentLanguage === "de" ? "de-DE" : currentLanguage === "ja" ? "ja-JP" : "en-US";
+    }
+
+    // Try finding best browser voice match
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      if (isHindi) {
+        const hiVoice = voices.find(
+          (v) =>
+            v.lang.startsWith("hi") ||
+            v.lang.includes("HI") ||
+            v.name.toLowerCase().includes("hindi") ||
+            v.name.toLowerCase().includes("google \u0939\u093f\u0928\u094d\u0926\u0940") ||
+            v.name.toLowerCase().includes("kalpana") ||
+            v.name.toLowerCase().includes("hemant") ||
+            v.name.toLowerCase().includes("lekha")
+        ) || voices.find((v) => v.lang.includes("IN") || v.lang.includes("in"));
+
+        if (hiVoice) {
+          utterance.voice = hiVoice;
+        }
+      }
+    }
+
     if (mode === "guider") {
-      utterance.pitch = 0.8;
-      utterance.rate = 1.1; // precise robotic feel
+      utterance.pitch = 0.9;
+      utterance.rate = 1.0;
     } else if (mode === "companion") {
-      utterance.pitch = 1.1;
-      utterance.rate = 0.95; // warm, natural conversational feel
+      utterance.pitch = 1.05;
+      utterance.rate = 0.92; // Clear, relaxed speech rate
+    } else {
+      utterance.pitch = 1.0;
+      utterance.rate = 0.95;
     }
 
     utterance.onend = () => setIsSpeaking(false);
@@ -1217,7 +1380,7 @@ export default function App() {
       let requestPayload: any = {
         messages: updatedMessages,
         activeMode: getActiveMode(),
-        customInstructions: `${customInstructions.targetDomain} | style: ${customInstructions.personalityStyle} | coding: ${customInstructions.codePreference}`,
+        customInstructions: `${customInstructions.targetDomain} | style: ${customInstructions.personalityStyle} | coding: ${customInstructions.codePreference} | Language instruction: ${getLanguageInstruction(currentLanguage)}`,
       };
 
       // Check if this is a direct instruction to evaluate an idea, or if an image is attached (multimodal)
@@ -1508,6 +1671,88 @@ export default function App() {
     }
   };
 
+  // Direct Full Market Analysis PDF Report Generation
+  const handleTriggerMarketAnalysis = async (ideaText: string) => {
+    setIsAiProcessing(true);
+    playUiSound("toggle", soundEffectsEnabled);
+
+    const loadingMsgId = "msg_mkt_load_" + Date.now();
+    const loadingMsg: ChatMessage = {
+      id: loadingMsgId,
+      role: "model",
+      text: "📊 **Generating Full Market Analysis PDF Report**...\n\nAnalyzing Market Size (TAM/SAM/SOM), Target Audience, Competitor Moats, Unit Economics, SWOT Matrix, and Go-To-Market Strategy...",
+      timestamp: new Date().toLocaleTimeString(),
+      isTyping: true,
+    };
+
+    setChatSessions((prev) =>
+      prev.map((s) => (s.id === activeSessionId ? { ...s, messages: [...s.messages, loadingMsg] } : s))
+    );
+
+    try {
+      const res = await fetch("/api/market-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea: ideaText }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Market analysis generation failed.");
+      }
+
+      const reportData: MarketAnalysisReport = await res.json();
+
+      const aiText = `📊 **Full Market Analysis Report Ready!**\n\nI have completed the deep market feasibility analysis for **"${reportData.ideaTitle}"**.\n\n- **Viability Score**: ${reportData.viabilityScore}/100\n- **Estimated TAM**: ${reportData.tamEstimate}\n- **Risk Level**: ${reportData.riskLevel}\n\nYou can view the full institutional analysis or download the formatted PDF directly below on your chat screen:`;
+
+      setChatSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === activeSessionId) {
+            return {
+              ...s,
+              messages: s.messages.map((m) =>
+                m.id === loadingMsgId
+                  ? {
+                      ...m,
+                      text: aiText,
+                      isTyping: false,
+                      marketReport: reportData,
+                    }
+                  : m
+              ),
+            };
+          }
+          return s;
+        })
+      );
+    } catch (err: any) {
+      console.error(err);
+      const friendlyAlert = formatApiErrorMessage(err);
+      setApiError(friendlyAlert);
+
+      setChatSessions((prev) =>
+        prev.map((s) => {
+          if (s.id === activeSessionId) {
+            return {
+              ...s,
+              messages: s.messages.map((m) =>
+                m.id === loadingMsgId
+                  ? {
+                      ...m,
+                      text: `⚠️ **Market Analysis Alert**: Could not synthesize market report. ${friendlyAlert}`,
+                      isTyping: false,
+                    }
+                  : m
+              ),
+            };
+          }
+          return s;
+        })
+      );
+    } finally {
+      setIsAiProcessing(false);
+    }
+  };
+
   // Modular helper functions passed into sub-views
   const handleDraftFromAssistant = async (payload: {
     prompt: string;
@@ -1589,35 +1834,31 @@ export default function App() {
     }
   };
 
-  // Helper to trigger evaluation from sample buttons
-  const loadStarterConcept = (starter: string) => {
-    setInputText(starter);
-  };
-
   return (
     <div className="min-h-screen bg-[#fcfcfc] dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 flex flex-col justify-between relative font-sans overflow-x-hidden select-none pb-2 transition-colors">
       {/* Top Navigation Header */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 z-30 flex items-center justify-between px-3 sm:px-4 shadow-xs select-none transition-colors">
-        <div className="flex items-center gap-2 shrink-0">
+      <header className="fixed top-0 left-0 right-0 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 z-30 flex items-center justify-between px-2 sm:px-4 shadow-xs select-none transition-colors">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
           {/* Left: Sidebar Toggle Button [≡] */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shrink-0"
+            className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 transition-all cursor-pointer shrink-0 active:scale-95"
             title="Open Menu Sidebar"
+            aria-label="Open Menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 text-slate-800 dark:text-slate-100" />
           </button>
-          <span className="font-extrabold font-display text-base sm:text-lg tracking-tight text-slate-950 dark:text-white neon-text-glow whitespace-nowrap shrink-0">
+          <span className="font-extrabold font-display text-sm sm:text-lg tracking-tight text-slate-950 dark:text-white neon-text-glow whitespace-nowrap shrink-0">
             CORE AI
           </span>
         </div>
 
         {/* Center: Active mode status display & Firestore Live DB Badge */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 bg-slate-100 dark:bg-slate-800/90 px-2 sm:px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700 shrink-0">
             <div className="w-1.5 h-1.5 bg-[#00e5ff] rounded-full shadow-[0_0_8px_#00e5ff] shrink-0" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold whitespace-nowrap">
-              Mode: {getActiveMode()}
+            <span className="text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-slate-700 dark:text-slate-200 font-bold truncate max-w-[80px] xs:max-w-[120px] sm:max-w-none">
+              <span className="hidden xs:inline">Mode: </span>{getActiveMode()}
             </span>
           </div>
 
@@ -1627,13 +1868,26 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right: Image & Prototype Generator trigger, Dark Mode toggle, Keyboard shortcuts, & Settings options trigger */}
-        <div className="flex items-center gap-1.5 relative">
+        {/* Right: Touch-optimized Action Controls for Mobile & Desktop */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Quick New Chat Header Button */}
+          <button
+            onClick={() => {
+              playUiSound("toggle", soundEffectsEnabled);
+              handleCreateNewSession();
+              setActiveView("chat");
+            }}
+            className="p-2 sm:px-2.5 sm:py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-400/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0"
+            title="Start New Chat Thread"
+          >
+            <Plus className="w-4 h-4 text-cyan-500" />
+            <span className="hidden sm:inline font-mono text-[11px]">New Chat</span>
+          </button>
           {/* Direct Image & Prototype Generator Navigation Button */}
           <motion.button
             id="nav-image-prototype-btn"
             whileHover={{ 
-              scale: 1.07,
+              scale: 1.05,
               boxShadow: "0 0 20px rgba(0, 229, 255, 0.65)",
               borderColor: "rgba(0, 229, 255, 0.9)"
             }}
@@ -1661,12 +1915,13 @@ export default function App() {
                 setActiveView("visuals");
               }
             }}
-            className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-bold text-xs border relative ${
+            className={`p-2 sm:px-2.5 sm:py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-bold text-xs border relative ${
               activeView === "visuals" || activeView === "blueprint"
                 ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-[0_0_12px_rgba(0,229,255,0.4)]"
                 : "bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700 hover:text-cyan-600 dark:hover:text-cyan-300"
             }`}
-            title="Image & Prototype Generator (Click to toggle view, Long-press or Right-click to reset)"
+            title="Image & Prototype Generator (Click to toggle view)"
+            aria-label="Prototype Generator"
           >
             {/* Glowing Status Dot Indicator */}
             <motion.span
@@ -1692,14 +1947,15 @@ export default function App() {
             >
               <ImageIcon className={`w-4 h-4 ${activeView === "visuals" || activeView === "blueprint" ? "text-slate-950" : "text-cyan-500 dark:text-cyan-400"}`} />
             </motion.div>
-            <span className="hidden sm:inline font-mono text-[11px]">Image & Prototype</span>
+            <span className="hidden md:inline font-mono text-[11px]">{t.prototypeBtn}</span>
           </motion.button>
 
           {/* Dark Mode Toggle Button */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shrink-0 active:scale-95"
             title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            aria-label="Toggle Theme"
           >
             {isDarkMode ? (
               <Sun className="w-4 h-4 text-amber-400 fill-amber-400/20" />
@@ -1708,23 +1964,17 @@ export default function App() {
             )}
           </button>
 
-          <button
-            onClick={() => setShortcutsOpen(true)}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors cursor-pointer"
-            title="Keyboard Shortcuts Cheatsheet"
-          >
-            <Keyboard className="w-4 h-4" />
-          </button>
-
+          {/* View Options & Menu Dropdown Trigger (Three Dot) */}
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-            title="View Options"
+            className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shrink-0 active:scale-95"
+            title="Menu & Options"
+            aria-label="Menu Options"
           >
-            <MoreVertical className="w-5 h-5" />
+            <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          {/* Quick tab dropdown overlay */}
+          {/* Quick options dropdown overlay */}
           <AnimatePresence>
             {settingsOpen && (
               <>
@@ -1734,7 +1984,7 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 shadow-xl rounded-2xl p-2 z-50 overflow-hidden"
+                  className="absolute right-0 top-full mt-2 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl p-2 z-50 overflow-hidden max-h-[85vh] overflow-y-auto"
                 >
                   <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold px-3 py-1.5 block">
                     Synthesizer Views
@@ -1755,7 +2005,7 @@ export default function App() {
                           setActiveView(tab.id as any);
                           setSettingsOpen(false);
                         }}
-                        className={`w-full text-left p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                        className={`w-full text-left p-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
                           isSelected
                             ? "bg-[#00e5ff]/10 text-slate-900 dark:text-slate-100 border border-[#00e5ff]/30"
                             : "hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-600 dark:text-slate-300"
@@ -1765,12 +2015,97 @@ export default function App() {
                           <Icon className={`w-4 h-4 ${isSelected ? "text-[#00e5ff]" : "text-slate-400 dark:text-slate-500"}`} />
                           {tab.label}
                         </div>
-                        <kbd className="px-1 py-0.5 bg-slate-50 dark:bg-slate-800 border border-slate-150 dark:border-slate-700 text-slate-400 dark:text-slate-400 text-[8px] font-mono rounded font-medium shrink-0">
+                        <kbd className="hidden sm:inline-block px-1 py-0.5 bg-slate-50 dark:bg-slate-800 border border-slate-150 dark:border-slate-700 text-slate-400 dark:text-slate-400 text-[8px] font-mono rounded font-medium shrink-0">
                           {tab.shortcut}
                         </kbd>
                       </button>
                     );
                   })}
+
+                  <div className="my-2 border-t border-slate-100 dark:border-slate-800" />
+
+                  {/* Chat Controls */}
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold px-3 py-1 block">
+                    Chat Controls
+                  </span>
+                  <button
+                    onClick={() => {
+                      playUiSound("toggle", soundEffectsEnabled);
+                      handleCreateNewSession();
+                      setActiveView("chat");
+                      setSettingsOpen(false);
+                    }}
+                    className="w-full text-left p-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-cyan-500" />
+                    <span>New Chat Thread</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const currentSession = getActiveSession();
+                      if (currentSession) {
+                        handleOpenDeleteModal(currentSession.id);
+                        setSettingsOpen(false);
+                      }
+                    }}
+                    className="w-full text-left p-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-500" />
+                    <span>Delete Current Chat</span>
+                  </button>
+
+                  <div className="my-2 border-t border-slate-100 dark:border-slate-800" />
+
+                  {/* Language Selection inside Three-Dot Menu */}
+                  <div className="px-2 py-1">
+                    <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold block mb-1.5 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-cyan-500" /> Language / भाषा
+                    </span>
+                    <div className="grid grid-cols-2 gap-1">
+                      {LANGUAGE_OPTIONS.map((lang) => {
+                        const isSelected = currentLanguage === lang.code;
+                        return (
+                          <button
+                            key={lang.code}
+                            onClick={() => {
+                              setCurrentLanguage(lang.code);
+                              playUiSound("toggle", soundEffectsEnabled);
+                            }}
+                            className={`px-2 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer border ${
+                              isSelected
+                                ? "bg-cyan-50 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 font-bold border-cyan-300 dark:border-cyan-700"
+                                : "bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-transparent"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-sm">{lang.flag}</span>
+                              <span className="truncate text-[11px]">{lang.nativeName}</span>
+                            </div>
+                            {isSelected && <Check className="w-3 h-3 text-cyan-500 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="my-2 border-t border-slate-100 dark:border-slate-800" />
+
+                  {/* Keyboard Instructions & Shortcuts */}
+                  <button
+                    onClick={() => {
+                      setShortcutsOpen(true);
+                      setSettingsOpen(false);
+                    }}
+                    className="w-full text-left p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Keyboard className="w-4 h-4 text-cyan-500" />
+                      <span>{t.keyboardShortcuts}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                      Cheatsheet
+                    </span>
+                  </button>
                 </motion.div>
               </>
             )}
@@ -2120,6 +2455,30 @@ export default function App() {
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => {
+                            playUiSound("toggle", soundEffectsEnabled);
+                            handleCreateNewSession();
+                          }}
+                          className="px-2 py-1 bg-cyan-500 text-slate-950 font-bold text-[10px] rounded-lg border border-cyan-400 hover:bg-cyan-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-1 cursor-pointer shadow-2xs"
+                          title="Start New Chat Thread"
+                        >
+                          <Plus className="w-3 h-3 text-slate-950" />
+                          New Chat
+                        </button>
+                        <button
+                          onClick={() => {
+                            const session = getActiveSession();
+                            if (session) {
+                              handleOpenDeleteModal(session.id);
+                            }
+                          }}
+                          className="px-2 py-1 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 font-bold text-[10px] rounded-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-1 cursor-pointer shadow-2xs"
+                          title="Delete Active Chat Thread"
+                        >
+                          <Trash2 className="w-3 h-3 text-rose-500" />
+                          Delete
+                        </button>
                         <button
                           id="btn-export-chat-json"
                           onClick={() => {
@@ -2563,19 +2922,23 @@ export default function App() {
                     </div>
                   </div>
 
-                  {getActiveMessages().map((msg) => (
-                    <ChatMessageComponent
-                      key={msg.id}
-                      message={msg}
-                      onCopyMessage={handleCopyMessage}
-                      onSpeakText={handleSpeakText}
-                      onTogglePin={handleTogglePinMessage}
-                      onToggleReaction={handleToggleReaction}
-                      onTriggerEvaluation={handleTriggerEvaluation}
-                      onTriggerGuidance={handleTriggerGuidance}
-                      copiedMessageId={copiedMessageId}
-                    />
-                  ))}
+                  <AnimatePresence initial={false}>
+                    {getActiveMessages().map((msg) => (
+                      <ChatMessageComponent
+                        key={msg.id}
+                        message={msg}
+                        onCopyMessage={handleCopyMessage}
+                        onSpeakText={handleSpeakText}
+                        onTogglePin={handleTogglePinMessage}
+                        onToggleReaction={handleToggleReaction}
+                        onTriggerEvaluation={handleTriggerEvaluation}
+                        onTriggerGuidance={handleTriggerGuidance}
+                        onTriggerMarketAnalysis={handleTriggerMarketAnalysis}
+                        onOpenMarketReportModal={(rep) => setActiveMarketReport(rep)}
+                        copiedMessageId={copiedMessageId}
+                      />
+                    ))}
+                  </AnimatePresence>
 
                   {/* AI Synthesizing Loader */}
                   {isAiProcessing && <ChatSkeleton />}
@@ -2684,71 +3047,92 @@ export default function App() {
               />
             </div>
 
-            {/* Sample Quick-Pill Prompts for single-click testing */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar select-none px-1">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-extrabold shrink-0 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#00e5ff]" /> Quick Try:
-              </span>
-              {[
-                { icon: "💡", label: "Analyze AI study planner SaaS", prompt: "Analyze micro-SaaS idea for AI study planner with viral loops and revenue model" },
-                { icon: "🚀", label: "Draft auth engine spec", prompt: "Draft technical spec for scalable auth engine with JWT, OAuth2 and session refresh" },
-                { icon: "🎨", label: "Generate dark dashboard UI", prompt: "Generate UI wireframe layout for dark mode dashboard with metrics analytics" },
-              ].map((pill, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    handleSendMessage(undefined, pill.prompt);
-                  }}
-                  className="px-2.5 py-1 rounded-full bg-white dark:bg-slate-800/90 hover:bg-cyan-50 dark:hover:bg-cyan-950/80 border border-slate-200 dark:border-slate-700 hover:border-cyan-400/80 text-slate-700 dark:text-slate-200 hover:text-cyan-700 dark:hover:text-cyan-200 text-[10px] font-semibold shrink-0 transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
-                  title={`Click to send: "${pill.prompt}"`}
-                >
-                  <span>{pill.icon}</span>
-                  <span className="truncate max-w-[150px] sm:max-w-none">{pill.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Quick Formatting Toolbar */}
-            <div className="flex items-center gap-1.5 px-3 py-1">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold mr-1">Style:</span>
-              <button
-                type="button"
-                onClick={() => applyFormatting("bold")}
-                className="p-1 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-150 dark:border-slate-700 text-slate-600 dark:text-slate-200 font-sans font-extrabold text-[10px] flex items-center gap-1 cursor-pointer transition-all shadow-xs"
-                title="Bold Selection (Ctrl+B / **text**)"
-              >
-                <Bold className="w-3 h-3 text-slate-500 dark:text-slate-400 stroke-[3px]" />
-                Bold
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormatting("italic")}
-                className="p-1 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-150 dark:border-slate-700 text-slate-600 dark:text-slate-200 font-sans italic text-[10px] flex items-center gap-1 cursor-pointer transition-all shadow-xs"
-                title="Italic Selection (Ctrl+I / *text*)"
-              >
-                <Italic className="w-3 h-3 text-slate-500 dark:text-slate-400 stroke-[2.5px]" />
-                Italic
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormatting("code")}
-                className="p-1 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-150 dark:border-slate-700 text-slate-600 dark:text-slate-200 font-mono text-[10px] flex items-center gap-1 cursor-pointer transition-all shadow-xs"
-                title="Code Block (```)"
-              >
-                <Code className="w-3 h-3 text-slate-500 dark:text-slate-400 stroke-[2.5px]" />
-                Code
-              </button>
-              <span className="text-[8px] text-slate-400 dark:text-slate-500 select-none ml-1 font-mono hidden sm:inline">
-                • highlight text & click a style to wrap
-              </span>
-            </div>
-
             {/* Bottom Input Box Console with glowing blue neon rounded border ring */}
             <form
               onSubmit={handleSendMessage}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 rounded-full transition-all border-2 neon-border-glowing"
+              className="relative flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-slate-900 rounded-full transition-all border-2 neon-border-glowing"
             >
+              {/* Quick Actions Suggestions Trigger Inside Input Box */}
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setQuickActionsOpen(!quickActionsOpen)}
+                  className={`p-1 px-2 rounded-full border text-[9px] font-extrabold font-mono transition-all cursor-pointer flex items-center gap-1 ${
+                    quickActionsOpen
+                      ? "bg-cyan-500/20 text-[#00e5ff] border-cyan-400/60 shadow-[0_0_8px_rgba(0,229,255,0.3)]"
+                      : "bg-slate-100 dark:bg-slate-800/90 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400/60"
+                  }`}
+                  title="Quick Actions & Suggestions"
+                >
+                  <Sparkles className="w-3 h-3 text-[#00e5ff] animate-pulse" />
+                  <span className="hidden sm:inline">{t.tryButton}</span>
+                  <ChevronUp className={`w-2.5 h-2.5 transition-transform duration-200 ${quickActionsOpen ? "rotate-180 text-[#00e5ff]" : ""}`} />
+                </button>
+
+                {/* Quick Actions Popover */}
+                <AnimatePresence>
+                  {quickActionsOpen && (
+                    <>
+                      {/* Backdrop to dismiss on click outside */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setQuickActionsOpen(false)}
+                      />
+
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute bottom-full mb-3 left-0 z-50 w-72 sm:w-80 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl"
+                      >
+                        <div className="flex items-center justify-between px-2 py-1 mb-1.5 border-b border-slate-100 dark:border-slate-800">
+                          <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#00e5ff]" /> {t.quickTry}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setQuickActionsOpen(false)}
+                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-1">
+                          {[
+                            { icon: "💡", label: "Analyze AI study planner SaaS", desc: "Monetization, viral loops & target domain analysis", prompt: "Analyze micro-SaaS idea for AI study planner with viral loops and revenue model" },
+                            { icon: "🚀", label: "Draft auth engine spec", desc: "JWT, OAuth2, session refresh & security architecture", prompt: "Draft technical spec for scalable auth engine with JWT, OAuth2 and session refresh" },
+                            { icon: "🎨", label: "Generate dark dashboard UI", desc: "Modern UI wireframe & layout component breakdown", prompt: "Generate UI wireframe layout for dark mode dashboard with metrics analytics" },
+                            { icon: "⚡", label: "Evaluate business model & risks", desc: "Identify key risks, unit economics & competitors", prompt: "Evaluate the unit economics, risks, and competitor advantages for my startup concept" },
+                          ].map((item, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setQuickActionsOpen(false);
+                                handleSendMessage(undefined, item.prompt);
+                              }}
+                              className="w-full text-left p-2 rounded-xl hover:bg-cyan-50 dark:hover:bg-cyan-950/50 border border-transparent hover:border-cyan-200 dark:hover:border-cyan-800/60 transition-all cursor-pointer group flex items-start gap-2.5"
+                            >
+                              <span className="text-sm p-1 rounded-lg bg-slate-100 dark:bg-slate-800 shrink-0">{item.icon}</span>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                                  {item.label}
+                                </div>
+                                <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                                  {item.desc}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+
               {/* Attachment Button (+) */}
               <button
                 type="button"
@@ -2772,8 +3156,8 @@ export default function App() {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="What would you like CORE to analyze?"
-                className="flex-1 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 font-sans focus:outline-none focus:ring-0 bg-transparent py-1.5"
+                placeholder={t.inputPlaceholder}
+                className="flex-1 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 font-sans focus:outline-none focus:ring-0 bg-transparent py-1.5 min-w-0"
               />
 
               {/* Float Thumbnail of loaded attachment if any */}
@@ -2895,9 +3279,12 @@ export default function App() {
           setActiveView("chat");
         }}
         onNewSession={handleCreateNewSession}
+        onDeleteSession={handleOpenDeleteModal}
         userEmail={userEmail}
         onUpdateSessionTags={handleUpdateSessionTags}
         onOpenAutoNameSelector={handleOpenAutoNameSelector}
+        currentLanguage={currentLanguage}
+        onChangeLanguage={setCurrentLanguage}
       />
 
       {/* Keyboard Shortcuts Modal */}
@@ -3147,6 +3534,69 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Delete Chat Session Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmModal && deleteConfirmModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl border border-rose-500/20 shrink-0">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Delete Conversation?
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Is chat thread ko delete karne se yeh hamesha ke liye hat jayega.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
+                  "{deleteConfirmModal.title}"
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmModal(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel / Cancel Karein
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDeleteSession(deleteConfirmModal.sessionId);
+                    setDeleteConfirmModal(null);
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-all cursor-pointer shadow-lg shadow-rose-600/20 flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete / Haataien
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Market Analysis Report Full View Modal */}
+      {activeMarketReport && (
+        <MarketAnalysisModal
+          report={activeMarketReport}
+          onClose={() => setActiveMarketReport(null)}
+        />
+      )}
     </div>
   );
 }

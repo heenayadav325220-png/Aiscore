@@ -1,3 +1,46 @@
+export interface MarketAnalysisReport {
+  id: string;
+  ideaTitle: string;
+  tagline: string;
+  category: string;
+  date: string;
+  viabilityScore: number;
+  riskLevel: "Low" | "Medium" | "High";
+  tamEstimate: string;
+  samEstimate: string;
+  somEstimate: string;
+  executiveSummary: string;
+  targetAudience: {
+    persona: string;
+    painPoints: string[];
+    willingnessToPay: string;
+  };
+  competitors: {
+    name: string;
+    strengths: string;
+    weakness: string;
+    ourEdge: string;
+  }[];
+  swot: {
+    strengths: string[];
+    weaknesses: string[];
+    opportunities: string[];
+    threats: string[];
+  };
+  unitEconomics: {
+    pricingModel: string;
+    estimatedCac: string;
+    estimatedLtv: string;
+    paybackPeriod: string;
+  };
+  goToMarket: {
+    primaryChannels: string[];
+    viralHook: string;
+    milestones: { phase: string; goal: string }[];
+  };
+  keyRecommendations: string[];
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "model";
@@ -11,6 +54,7 @@ export interface ChatMessage {
   isTyping?: boolean;
   reactions?: string[];
   isPinned?: boolean;
+  marketReport?: MarketAnalysisReport;
 }
 
 export interface IdeaEvaluation {
@@ -58,6 +102,15 @@ export interface CustomInstructions {
   forbiddenTopics: string;
   personalityStyle: string;
   codePreference: string;
+}
+
+export type AppLanguage = "en" | "hi" | "hinglish" | "es" | "fr" | "de" | "ja";
+
+export interface LanguageOption {
+  code: AppLanguage;
+  name: string;
+  nativeName: string;
+  flag: string;
 }
 
 export interface ThemeSettings {

@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Sparkles, Cpu, Lightbulb, Code, ImageIcon, FileText, Zap } from "lucide-react";
+import { Sparkles, Cpu, Code, ImageIcon, FileText, Zap } from "lucide-react";
 
 export function GlobalNeonLoader({ label = "CORE AI MATRIX SYNTHESIZING..." }: { label?: string }) {
   return (

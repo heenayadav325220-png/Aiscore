@@ -9,23 +9,20 @@ import {
   Sparkles,
   MessageSquare,
   ChevronRight,
-  Settings,
   Plus,
-  Compass,
-  CheckCircle,
-  Volume2,
   Check,
   Zap,
-  TrendingUp,
   Target,
   Infinity,
   Shield,
   Tag,
   Filter,
   Search,
-  Hash
+  Globe,
+  Trash2
 } from "lucide-react";
-import { UIMode, IdeaEvaluation, CustomInstructions, ThemeSettings, ChatSession } from "../types";
+import { UIMode, IdeaEvaluation, CustomInstructions, ThemeSettings, ChatSession, AppLanguage } from "../types";
+import { LANGUAGE_OPTIONS } from "../lib/translations";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -43,10 +40,14 @@ interface SidebarProps {
   activeSessionId: string;
   onSelectSession: (id: string) => void;
   onNewSession: () => void;
+  onDeleteSession?: (sessionId: string) => void;
   userEmail: string;
   onUpdateSessionTags?: (sessionId: string, tags: string[]) => void;
   onOpenAutoNameSelector?: (sessionId: string) => void;
+  currentLanguage?: AppLanguage;
+  onChangeLanguage?: (lang: AppLanguage) => void;
 }
+
 
 type SidebarSubTab = "menu" | "profile" | "ideas" | "instructions" | "modes" | "themes" | "chats" | "xfactor";
 
@@ -65,9 +66,12 @@ export default function Sidebar({
   activeSessionId,
   onSelectSession,
   onNewSession,
+  onDeleteSession,
   userEmail,
   onUpdateSessionTags,
   onOpenAutoNameSelector,
+  currentLanguage = "en",
+  onChangeLanguage,
 }: SidebarProps) {
   const [activeSubTab, setActiveSubTab] = useState<SidebarSubTab>("menu");
 
@@ -333,19 +337,54 @@ export default function Sidebar({
                   {/* Active Chats history */}
                   <button
                     onClick={() => setActiveSubTab("chats")}
-                    className="w-full text-left p-3 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer"
+                    className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-all flex items-center justify-between group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-slate-50 rounded-lg text-slate-500 group-hover:text-[#00e5ff] transition-colors">
+                      <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 group-hover:text-[#00e5ff] transition-colors">
                         <MessageSquare className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800">Chat Threads</h4>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Browse active sessions ({chatSessions.length})</p>
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">Chat Threads</h4>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Browse active sessions ({chatSessions.length})</p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-300 transition-colors" />
                   </button>
+
+                  {/* Language Selector Block */}
+                  {onChangeLanguage && (
+                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2 mt-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-cyan-500" />
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-100">App Language / भाषा</span>
+                        </div>
+                        <span className="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300">
+                          {currentLanguage}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Select AI response & interface language
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5 pt-1">
+                        {LANGUAGE_OPTIONS.map((lang) => (
+                          <button
+                            key={lang.code}
+                            onClick={() => onChangeLanguage(lang.code)}
+                            className={`p-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer border ${
+                              currentLanguage === lang.code
+                                ? "bg-cyan-500 text-slate-950 font-bold border-cyan-400 shadow-[0_0_8px_rgba(0,229,255,0.3)]"
+                                : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:border-cyan-300"
+                            }`}
+                          >
+                            <span>{lang.flag}</span>
+                            <span className="truncate text-[11px]">{lang.nativeName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               )}
 
@@ -953,6 +992,19 @@ export default function Sidebar({
                                   <Tag className="w-3 h-3" />
                                   <span className="text-[9px] font-mono">+Tag</span>
                                 </button>
+                                {onDeleteSession && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteSession(sess.id);
+                                    }}
+                                    className="p-1 rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-all cursor-pointer hover:scale-105"
+                                    title="Delete chat thread"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                                 <ChevronRight
                                   onClick={() => {
                                     onSelectSession(sess.id);

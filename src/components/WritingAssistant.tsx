@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { motion } from "motion/react";
-import { PenTool, Copy, Check, Sparkles, Send, FileText, ArrowRight, BookOpen } from "lucide-react";
+import { PenTool, Copy, Check, Sparkles, FileText, ArrowRight, BookOpen } from "lucide-react";
 
 interface WritingAssistantProps {
   onDraftDocument: (payload: {

@@ -20,8 +20,8 @@
 }
 
 body {
-  background-color: #fcfcfc;
-  color: #1a1a1a;
+  background-color: #f1f5f9;
+  color: #0f172a;
   overflow-x: hidden;
   font-family: var(--font-sans);
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -30,6 +30,73 @@ body {
 body.dark {
   background-color: #0b0f19;
   color: #f1f5f9;
+}
+
+/* Light Mode High-Contrast & Readability Rules */
+:root:not(.dark) {
+  --color-neon-blue: #0284c7;
+}
+
+:root:not(.dark) .text-\[\#00e5ff\] {
+  color: #0284c7 !important;
+}
+
+:root:not(.dark) .text-cyan-400,
+:root:not(.dark) .text-cyan-300 {
+  color: #0369a1 !important;
+}
+
+:root:not(.dark) .bg-\[\#00e5ff\] {
+  background-color: #0284c7 !important;
+}
+
+:root:not(.dark) .border-\[\#00e5ff\] {
+  border-color: #0284c7 !important;
+}
+
+:root:not(.dark) .fill-\[\#00e5ff\] {
+  fill: #0284c7 !important;
+}
+
+:root:not(.dark) .text-slate-400 {
+  color: #475569 !important;
+}
+
+:root:not(.dark) .text-slate-500 {
+  color: #334155 !important;
+}
+
+:root:not(.dark) .text-slate-300 {
+  color: #1e293b !important;
+}
+
+:root:not(.dark) .border-slate-200,
+:root:not(.dark) .border-slate-100 {
+  border-color: #cbd5e1 !important;
+}
+
+:root:not(.dark) .bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+
+:root:not(.dark) .bento-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+:root:not(.dark) .neon-border {
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.15);
+  border: 1.5px solid #0284c7;
+}
+
+:root:not(.dark) .neon-border-glowing {
+  box-shadow: 0 0 12px rgba(2, 132, 199, 0.25);
+  border: 2px solid #0284c7;
+}
+
+:root:not(.dark) .neon-text-glow {
+  text-shadow: 0 0 4px rgba(2, 132, 199, 0.2);
 }
 
 @layer utilities {

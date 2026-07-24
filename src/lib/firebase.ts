@@ -6,8 +6,7 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
-  query,
-  orderBy
+  query
 } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 import { ChatSession, IdeaEvaluation, PrototypeGuidance, CustomInstructions, ThemeSettings } from "../types";

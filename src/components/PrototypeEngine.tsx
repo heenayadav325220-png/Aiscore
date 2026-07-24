@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { PrototypeGuidance } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Code, Calendar, CheckSquare, Square, Smartphone, Layers, Layout, Clock, PlayCircle, Sparkles, Image, RefreshCw, ZoomIn, Download, FileSearch, Copy, Check } from "lucide-react";
+import { Code, CheckSquare, Square, Layers, Layout, Clock, Sparkles, Image, RefreshCw, Download, Copy, Check } from "lucide-react";
 import ImageGenerator from "./ImageGenerator";
 
 interface PrototypeEngineProps {

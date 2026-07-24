@@ -231,7 +231,6 @@ export function exportEvaluationToHtml(evaluation: IdeaEvaluation) {
   `).join("");
 
   const overallScoreColor = evaluation.overallScore >= 80 ? "text-emerald-500" : evaluation.overallScore >= 60 ? "text-amber-500" : "text-rose-500";
-  const overallScoreBg = evaluation.overallScore >= 80 ? "bg-emerald-500" : evaluation.overallScore >= 60 ? "bg-amber-500" : "bg-rose-500";
   const borderVerdictClass = evaluation.approved ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-rose-500";
 
   const getMetricColor = (score: number) => score >= 80 ? "text-emerald-500" : score >= 60 ? "text-amber-500" : "text-rose-500";

@@ -14,12 +14,12 @@ import {
   Code2,
   Terminal,
   Sparkles,
-  FileText,
   User,
-  ExternalLink,
-  ChevronRight
+  BarChart3,
+  FileText
 } from "lucide-react";
-import { ChatMessage as ChatMessageType } from "../types";
+import { ChatMessage as ChatMessageType, MarketAnalysisReport } from "../types";
+import { MarketAnalysisCard } from "./MarketAnalysisReportView";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -29,6 +29,8 @@ interface ChatMessageProps {
   onToggleReaction: (id: string, emoji: string) => void;
   onTriggerEvaluation?: (idea: string) => void;
   onTriggerGuidance?: (idea: string, title?: string) => void;
+  onTriggerMarketAnalysis?: (idea: string) => void;
+  onOpenMarketReportModal?: (report: MarketAnalysisReport) => void;
   copiedMessageId: string | null;
 }
 
@@ -288,14 +290,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onToggleReaction,
   onTriggerEvaluation,
   onTriggerGuidance,
+  onTriggerMarketAnalysis,
+  onOpenMarketReportModal,
   copiedMessageId
 }) => {
   const isUser = message.role === "user";
   const structuredSections = !isUser ? parseStructuredSections(message.text) : null;
 
   return (
-    <div
+    <motion.div
       id={`msg-bubble-${message.id}`}
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       className={`group flex gap-2.5 sm:gap-3 items-start my-2.5 transition-all ${
         isUser ? "flex-row-reverse" : "flex-row"
       }`}
@@ -408,8 +416,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               </div>
             )}
 
-            {/* Smart Action Shortcuts Bar (Evaluator, Blueprint, Writer shortcuts) */}
+            {/* Smart Action Shortcuts Bar (Evaluator, Blueprint, Market Analysis shortcuts) */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              {onTriggerMarketAnalysis && (
+                <button
+                  type="button"
+                  onClick={() => onTriggerMarketAnalysis(message.text)}
+                  className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-[10px] font-bold text-cyan-400 transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+                  title="Generate Full Market Analysis PDF Report"
+                >
+                  <BarChart3 className="w-3 h-3 text-[#00e5ff]" />
+                  <span>📊 Full Market PDF Analysis</span>
+                </button>
+              )}
+
               {onTriggerEvaluation && (
                 <button
                   type="button"
@@ -434,6 +454,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 </button>
               )}
             </div>
+
+            {/* Embedded Market Analysis Report Card directly in the Chat Thread */}
+            {message.marketReport && (
+              <MarketAnalysisCard
+                report={message.marketReport}
+                onOpenModal={(rep) => onOpenMarketReportModal && onOpenMarketReportModal(rep)}
+              />
+            )}
           </div>
         )}
 
@@ -541,6 +569,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };

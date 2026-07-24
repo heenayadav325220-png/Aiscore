@@ -45,6 +45,7 @@ interface SidebarProps {
   onNewSession: () => void;
   userEmail: string;
   onUpdateSessionTags?: (sessionId: string, tags: string[]) => void;
+  onOpenAutoNameSelector?: (sessionId: string) => void;
 }
 
 type SidebarSubTab = "menu" | "profile" | "ideas" | "instructions" | "modes" | "themes" | "chats" | "xfactor";
@@ -66,6 +67,7 @@ export default function Sidebar({
   onNewSession,
   userEmail,
   onUpdateSessionTags,
+  onOpenAutoNameSelector,
 }: SidebarProps) {
   const [activeSubTab, setActiveSubTab] = useState<SidebarSubTab>("menu");
 
@@ -919,6 +921,21 @@ export default function Sidebar({
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0">
+                                {onOpenAutoNameSelector && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onOpenAutoNameSelector(sess.id);
+                                      onClose();
+                                    }}
+                                    className="p-1 rounded-lg text-[10px] font-bold flex items-center gap-0.5 bg-cyan-50 dark:bg-cyan-950/80 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900 border border-cyan-300/40 dark:border-cyan-800/40 transition-all cursor-pointer hover:scale-105"
+                                    title="Auto Chat Name Selector"
+                                  >
+                                    <Sparkles className="w-3 h-3 text-cyan-500 animate-pulse" />
+                                    <span className="text-[9px] font-mono">Auto Name</span>
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={(e) => {

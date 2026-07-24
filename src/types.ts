@@ -10,6 +10,7 @@ export interface ChatMessage {
   };
   isTyping?: boolean;
   reactions?: string[];
+  isPinned?: boolean;
 }
 
 export interface IdeaEvaluation {

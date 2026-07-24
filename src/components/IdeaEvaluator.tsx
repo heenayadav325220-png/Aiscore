@@ -1,13 +1,32 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { IdeaEvaluation } from "../types";
 import { CheckCircle, XCircle, Award, Target, Zap, ArrowRight, ShieldCheck, AlertTriangle, Lightbulb, TrendingUp, Download, FileJson, Printer, RefreshCw } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, useMotionValue, animate } from "motion/react";
 import { exportEvaluationToHtml, exportEvaluationToJson } from "../lib/exportUtils";
 
 interface IdeaEvaluatorProps {
   evaluation: IdeaEvaluation;
   onGenerateGuidance: (idea: string, title: string) => void;
   isGeneratingGuidance: boolean;
+}
+
+function AnimatedScore({ value, className }: { value: number; className?: string }) {
+  const count = useMotionValue(0);
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    count.set(0);
+    const controls = animate(count, value, {
+      duration: 1.2,
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: (latest) => {
+        setDisplayValue(Math.round(latest));
+      },
+    });
+    return () => controls.stop();
+  }, [value, count]);
+
+  return <span className={className}>{displayValue}</span>;
 }
 
 export default function IdeaEvaluator({
@@ -91,9 +110,10 @@ export default function IdeaEvaluator({
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-medium text-slate-400 font-mono">Score:</span>
-              <span className={`text-4xl font-extrabold font-display ${getScoreColor(evaluation.overallScore)}`}>
-                {evaluation.overallScore}
-              </span>
+              <AnimatedScore
+                value={evaluation.overallScore}
+                className={`text-4xl font-extrabold font-display ${getScoreColor(evaluation.overallScore)}`}
+              />
             </div>
           </div>
         </div>
@@ -115,15 +135,18 @@ export default function IdeaEvaluator({
             <Zap className="w-4 h-4 text-amber-500" />
           </div>
           <div className="flex items-baseline gap-1">
-            <span className={`text-2xl font-bold font-display ${getScoreColor(evaluation.feasibilityScore)}`}>
-              {evaluation.feasibilityScore}
-            </span>
+            <AnimatedScore
+              value={evaluation.feasibilityScore}
+              className={`text-2xl font-bold font-display ${getScoreColor(evaluation.feasibilityScore)}`}
+            />
             <span className="text-xs text-slate-400">/100</span>
           </div>
           <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div
+            <motion.div
               className={`h-full rounded-full ${getProgressBg(evaluation.feasibilityScore)}`}
-              style={{ width: `${evaluation.feasibilityScore}%` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${evaluation.feasibilityScore}%` }}
+              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
             />
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-mono">Technical viability & implementation effort.</p>
@@ -136,15 +159,18 @@ export default function IdeaEvaluator({
             <Target className="w-4 h-4 text-[#00e5ff]" />
           </div>
           <div className="flex items-baseline gap-1">
-            <span className={`text-2xl font-bold font-display ${getScoreColor(evaluation.marketPotentialScore)}`}>
-              {evaluation.marketPotentialScore}
-            </span>
+            <AnimatedScore
+              value={evaluation.marketPotentialScore}
+              className={`text-2xl font-bold font-display ${getScoreColor(evaluation.marketPotentialScore)}`}
+            />
             <span className="text-xs text-slate-400">/100</span>
           </div>
           <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div
+            <motion.div
               className={`h-full rounded-full ${getProgressBg(evaluation.marketPotentialScore)}`}
-              style={{ width: `${evaluation.marketPotentialScore}%` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${evaluation.marketPotentialScore}%` }}
+              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
             />
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-mono">Monetization, scaling & growth vector.</p>
@@ -157,15 +183,18 @@ export default function IdeaEvaluator({
             <Award className="w-4 h-4 text-purple-500" />
           </div>
           <div className="flex items-baseline gap-1">
-            <span className={`text-2xl font-bold font-display ${getScoreColor(evaluation.innovationScore)}`}>
-              {evaluation.innovationScore}
-            </span>
+            <AnimatedScore
+              value={evaluation.innovationScore}
+              className={`text-2xl font-bold font-display ${getScoreColor(evaluation.innovationScore)}`}
+            />
             <span className="text-xs text-slate-400">/100</span>
           </div>
           <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div
+            <motion.div
               className={`h-full rounded-full ${getProgressBg(evaluation.innovationScore)}`}
-              style={{ width: `${evaluation.innovationScore}%` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${evaluation.innovationScore}%` }}
+              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
             />
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-mono">Novelty, competitive edge & disruption.</p>

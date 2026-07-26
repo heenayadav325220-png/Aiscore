@@ -43,9 +43,15 @@ import {
   Zap,
   Globe,
   Trash2,
-  Plus
+  Plus,
+  Crown,
+  UserCheck,
+  UserCog,
+  GraduationCap,
+  User,
+  AlertCircle
 } from "lucide-react";
-import { AppLanguage } from "./types";
+import { AppLanguage, OwnerProfile, UserProfile } from "./types";
 import { LANGUAGE_OPTIONS, TRANSLATIONS, getLanguageInstruction } from "./lib/translations";
 
 
@@ -197,6 +203,250 @@ const playUiSound = (type: "pin" | "unpin" | "toggle" | "reorder" | "copy" | "ex
   }
 };
 
+interface OwnerInfoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  profile: OwnerProfile;
+}
+
+function OwnerInfoModal({ isOpen, onClose, profile }: OwnerInfoModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.92, y: 15 }}
+        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+        className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-amber-500/40 dark:border-amber-500/50 relative overflow-hidden select-none"
+      >
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)]" />
+
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-500/15 rounded-2xl text-amber-500 border border-amber-500/30">
+              <Crown className="w-5 h-5 text-amber-500 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                  App Founder & Malik
+                </h3>
+                <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+                  Read-Only
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Official founder & creator credentials.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3 pt-4">
+          <div className="p-3.5 bg-slate-950 rounded-2xl border border-amber-500/20 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-slate-400">OWNER / FOUNDER</span>
+              <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">SYSTEM MEMORY</span>
+            </div>
+            <p className="text-base font-extrabold text-amber-300">{profile.name}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-mono text-slate-400 block">CLASS</span>
+              <span className="text-xs font-bold text-cyan-300 block mt-0.5">{profile.className} Grade</span>
+            </div>
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-mono text-slate-400 block">AGE</span>
+              <span className="text-xs font-bold text-emerald-300 block mt-0.5">{profile.age} Years Old</span>
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+            <span className="text-[10px] font-mono text-slate-400 block">APPLICATION</span>
+            <span className="text-xs font-bold text-purple-300 block mt-0.5">{profile.appTitle}</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-slate-300 text-[11px] leading-relaxed flex items-start gap-2">
+            <CheckCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <span>The Owner Profile is permanently locked to Rohit (Class 11th, Age 15) as founder and creator.</span>
+          </div>
+        </div>
+
+        <div className="pt-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+          >
+            Close Credentials
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+interface UserProfileModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  profile: UserProfile;
+  onSave: (newProfile: UserProfile) => void;
+}
+
+function UserProfileModal({ isOpen, onClose, profile, onSave }: UserProfileModalProps) {
+  const [name, setName] = useState(profile.name || "");
+  const [occupation, setOccupation] = useState(profile.occupation || "");
+  const [age, setAge] = useState(profile.age || "");
+  const [details, setDetails] = useState(profile.details || "");
+
+  useEffect(() => {
+    setName(profile.name || "");
+    setOccupation(profile.occupation || "");
+    setAge(profile.age || "");
+    setDetails(profile.details || "");
+  }, [profile, isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      name: name.trim(),
+      occupation: occupation.trim(),
+      age: age.trim(),
+      details: details.trim(),
+      isSetupCompleted: true,
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.92, y: 15 }}
+        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+        className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-cyan-500/40 dark:border-cyan-500/50 relative overflow-hidden select-none"
+      >
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 shadow-[0_0_12px_rgba(0,229,255,0.5)]" />
+
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-cyan-500/15 rounded-2xl text-cyan-500 border border-cyan-500/30">
+              <Sparkles className="w-5 h-5 text-cyan-400 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100 font-display">
+                  User Profile & AI Personalization
+                </h3>
+                <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
+                  AI Trained
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Save your background so CORE AI learns and adapts to you.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
+              Your Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Rahul Sharma"
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-cyan-400 transition-colors"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
+                What You Do (Occupation / Role)
+              </label>
+              <input
+                type="text"
+                value={occupation}
+                onChange={(e) => setOccupation(e.target.value)}
+                placeholder="e.g. 11th Grade Student, Developer"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-cyan-400 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
+                Age / Age Group
+              </label>
+              <input
+                type="text"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                placeholder="e.g. 17"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-cyan-400 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
+              About You & AI Preferences
+            </label>
+            <textarea
+              rows={3}
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+              placeholder="e.g. Preparing for JEE / coding web apps. Prefer visual step-by-step code examples, practical analogies, and clear logical breakdowns."
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-cyan-400 transition-colors resize-none"
+            />
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+              CORE AI learns from these details to personalize explanations, tone, and examples.
+            </p>
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-cyan-400 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/25 transition-all cursor-pointer active:scale-95 flex items-center gap-2"
+            >
+              <UserCheck className="w-4 h-4 text-slate-950" />
+              Save Profile & Train AI
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function App() {
   // Navigation drawer
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -214,6 +464,65 @@ export default function App() {
   const [activeEvaluation, setActiveEvaluation] = useState<IdeaEvaluation | null>(null);
   const [activeGuidance, setActiveGuidance] = useState<PrototypeGuidance | null>(null);
   const [activeMarketReport, setActiveMarketReport] = useState<MarketAnalysisReport | null>(null);
+
+  // Owner Profile state (Rohit / Creator) with persistence
+  const [ownerProfile, setOwnerProfile] = useState<OwnerProfile>(() => {
+    return {
+      name: "Rohit",
+      className: "11th",
+      age: "15",
+      appTitle: "ASCEND STUDY / CORE AI",
+    };
+  });
+
+  // Active User Profile for AI personalization
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem("core_ai_user_profile");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed parsing user profile:", e);
+      }
+    }
+    return {
+      name: "",
+      occupation: "",
+      age: "",
+      details: "",
+      isSetupCompleted: false,
+    };
+  });
+
+  const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
+  const [userProfileModalOpen, setUserProfileModalOpen] = useState<boolean>(false);
+  const [profileSaveToast, setProfileSaveToast] = useState<boolean>(false);
+  const [userProfileSaveToast, setUserProfileSaveToast] = useState<boolean>(false);
+
+  useEffect(() => {
+    localStorage.setItem("core_ai_owner_profile", JSON.stringify(ownerProfile));
+  }, [ownerProfile]);
+
+  useEffect(() => {
+    localStorage.setItem("core_ai_user_profile", JSON.stringify(userProfile));
+  }, [userProfile]);
+
+  const handleSaveOwnerProfile = (newProfile: OwnerProfile) => {
+    setOwnerProfile(newProfile);
+    localStorage.setItem("core_ai_owner_profile", JSON.stringify(newProfile));
+    playUiSound("toggle", soundEffectsEnabled);
+    setProfileSaveToast(true);
+    setTimeout(() => setProfileSaveToast(false), 3500);
+  };
+
+  const handleSaveUserProfile = (newProfile: UserProfile) => {
+    const updated = { ...newProfile, isSetupCompleted: true };
+    setUserProfile(updated);
+    localStorage.setItem("core_ai_user_profile", JSON.stringify(updated));
+    playUiSound("toggle", soundEffectsEnabled);
+    setUserProfileSaveToast(true);
+    setTimeout(() => setUserProfileSaveToast(false), 3500);
+  };
 
   // Custom Preferences
   const [customInstructions, setCustomInstructions] = useState<CustomInstructions>({
@@ -269,6 +578,7 @@ export default function App() {
 
   // Input states
   const [inputText, setInputText] = useState("");
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -454,6 +764,7 @@ export default function App() {
 
   const messageEndRef = useRef<HTMLDivElement>(null);
   const speechRecognitionRef = useRef<any>(null);
+  const speechKeepAliveRef = useRef<any>(null);
   const activeAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const activeAudioCtxRef = useRef<AudioContext | null>(null);
 
@@ -1150,6 +1461,11 @@ export default function App() {
 
   // Speak response out loud using Gemini TTS if enabled, or browser SpeechSynthesis as fallback
   const handleSpeakText = async (text: string) => {
+    if (speechKeepAliveRef.current) {
+      clearInterval(speechKeepAliveRef.current);
+      speechKeepAliveRef.current = null;
+    }
+
     if (isSpeaking) {
       window.speechSynthesis.cancel();
       try {
@@ -1171,13 +1487,28 @@ export default function App() {
     setIsSpeaking(true);
     const cleanSpeechText = sanitizeTextForSpeech(text);
 
+    // Limit text length to nearest sentence boundary if exceptionally long, ensuring full sentence completion
+    let speechPayload = cleanSpeechText;
+    if (speechPayload.length > 3000) {
+      const truncated = speechPayload.slice(0, 3000);
+      const lastBoundary = Math.max(
+        truncated.lastIndexOf(". "),
+        truncated.lastIndexOf("! "),
+        truncated.lastIndexOf("? "),
+        truncated.lastIndexOf("\n")
+      );
+      if (lastBoundary > 500) {
+        speechPayload = truncated.slice(0, lastBoundary + 1);
+      }
+    }
+
     try {
       // Lazy attempt to use Gemini high-fidelity TTS route
       const response = await fetch("/api/generate-speech", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: cleanSpeechText.slice(0, 500), // Limit text payload size for faster latency
+          text: speechPayload,
           mode: getActiveMode() === "guider" ? "robotic" : "human",
           language: currentLanguage,
         }),
@@ -1290,24 +1621,49 @@ export default function App() {
   };
 
   const speakWebFallback = (text: string) => {
+    if (speechKeepAliveRef.current) {
+      clearInterval(speechKeepAliveRef.current);
+      speechKeepAliveRef.current = null;
+    }
     window.speechSynthesis.cancel();
-    const clean = sanitizeTextForSpeech(text).slice(0, 500);
-    const utterance = new SpeechSynthesisUtterance(clean);
-    const mode = getActiveMode();
 
-    const isHindi = /[\u0900-\u097F]/.test(clean) || currentLanguage === "hi" || currentLanguage === "hinglish";
-
-    if (isHindi) {
-      utterance.lang = "hi-IN";
-    } else {
-      utterance.lang = currentLanguage === "es" ? "es-ES" : currentLanguage === "fr" ? "fr-FR" : currentLanguage === "de" ? "de-DE" : currentLanguage === "ja" ? "ja-JP" : "en-US";
+    const clean = sanitizeTextForSpeech(text);
+    if (!clean.trim()) {
+      setIsSpeaking(false);
+      return;
     }
 
-    // Try finding best browser voice match
+    const mode = getActiveMode();
+    const isHindi = /[\u0900-\u097F]/.test(clean) || currentLanguage === "hi" || currentLanguage === "hinglish";
+
+    // Split text into distinct complete sentence/clause chunks
+    const rawChunks = clean.match(/[^.!?\n]+[.!?\n]*/g) || [clean];
+    const sentenceChunks: string[] = [];
+
+    for (const raw of rawChunks) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      // If a sentence is unusually long, split at punctuation or clause boundaries
+      if (trimmed.length > 220) {
+        const clauses = trimmed.split(/(?<=[,;:।])/g);
+        for (const clause of clauses) {
+          if (clause.trim()) sentenceChunks.push(clause.trim());
+        }
+      } else {
+        sentenceChunks.push(trimmed);
+      }
+    }
+
+    if (sentenceChunks.length === 0) {
+      setIsSpeaking(false);
+      return;
+    }
+
     const voices = window.speechSynthesis.getVoices();
+    let selectedVoice: SpeechSynthesisVoice | null = null;
     if (voices.length > 0) {
       if (isHindi) {
-        const hiVoice = voices.find(
+        selectedVoice = voices.find(
           (v) =>
             v.lang.startsWith("hi") ||
             v.lang.includes("HI") ||
@@ -1316,28 +1672,71 @@ export default function App() {
             v.name.toLowerCase().includes("kalpana") ||
             v.name.toLowerCase().includes("hemant") ||
             v.name.toLowerCase().includes("lekha")
-        ) || voices.find((v) => v.lang.includes("IN") || v.lang.includes("in"));
-
-        if (hiVoice) {
-          utterance.voice = hiVoice;
-        }
+        ) || voices.find((v) => v.lang.includes("IN") || v.lang.includes("in")) || null;
+      } else {
+        const langCode = currentLanguage === "es" ? "es" : currentLanguage === "fr" ? "fr" : currentLanguage === "de" ? "de" : currentLanguage === "ja" ? "ja" : "en";
+        selectedVoice = voices.find((v) => v.lang.startsWith(langCode)) || null;
       }
     }
 
-    if (mode === "guider") {
-      utterance.pitch = 0.9;
-      utterance.rate = 1.0;
-    } else if (mode === "companion") {
-      utterance.pitch = 1.05;
-      utterance.rate = 0.92; // Clear, relaxed speech rate
-    } else {
-      utterance.pitch = 1.0;
-      utterance.rate = 0.95;
-    }
+    // Keep-alive heartbeat interval to prevent Chromium speech engine from timing out mid-speech
+    speechKeepAliveRef.current = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 9000);
 
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+    const speakChunkAtIndex = (index: number) => {
+      if (index >= sentenceChunks.length) {
+        if (speechKeepAliveRef.current) {
+          clearInterval(speechKeepAliveRef.current);
+          speechKeepAliveRef.current = null;
+        }
+        setIsSpeaking(false);
+        return;
+      }
+
+      const chunkText = sentenceChunks[index];
+      const utterance = new SpeechSynthesisUtterance(chunkText);
+
+      if (isHindi) {
+        utterance.lang = "hi-IN";
+      } else {
+        utterance.lang = currentLanguage === "es" ? "es-ES" : currentLanguage === "fr" ? "fr-FR" : currentLanguage === "de" ? "de-DE" : currentLanguage === "ja" ? "ja-JP" : "en-US";
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+
+      if (mode === "guider") {
+        utterance.pitch = 0.9;
+        utterance.rate = 1.0;
+      } else if (mode === "companion") {
+        utterance.pitch = 1.05;
+        utterance.rate = 0.92;
+      } else {
+        utterance.pitch = 1.0;
+        utterance.rate = 0.95;
+      }
+
+      utterance.onend = () => {
+        // Sequentially trigger next sentence chunk after current one finishes completely
+        speakChunkAtIndex(index + 1);
+      };
+
+      utterance.onerror = (err) => {
+        console.warn(`Speech chunk ${index} error:`, err);
+        // Continue to next sentence chunk
+        speakChunkAtIndex(index + 1);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    // Begin playing sentence queue from index 0
+    speakChunkAtIndex(0);
   };
 
   // Handle general chat message submission
@@ -1380,7 +1779,8 @@ export default function App() {
       let requestPayload: any = {
         messages: updatedMessages,
         activeMode: getActiveMode(),
-        customInstructions: `${customInstructions.targetDomain} | style: ${customInstructions.personalityStyle} | coding: ${customInstructions.codePreference} | Language instruction: ${getLanguageInstruction(currentLanguage)}`,
+        customInstructions: `APP OWNER & CREATOR (MALIK): Name: ${ownerProfile.name} | Class: ${ownerProfile.className} | Age: ${ownerProfile.age} | App: ${ownerProfile.appTitle} | Domain: ${customInstructions.targetDomain} | style: ${customInstructions.personalityStyle} | coding: ${customInstructions.codePreference} | Language instruction: ${getLanguageInstruction(currentLanguage)}`,
+        userProfile: userProfile,
       };
 
       // Check if this is a direct instruction to evaluate an idea, or if an image is attached (multimodal)
@@ -1883,72 +2283,6 @@ export default function App() {
             <Plus className="w-4 h-4 text-cyan-500" />
             <span className="hidden sm:inline font-mono text-[11px]">New Chat</span>
           </button>
-          {/* Direct Image & Prototype Generator Navigation Button */}
-          <motion.button
-            id="nav-image-prototype-btn"
-            whileHover={{ 
-              scale: 1.05,
-              boxShadow: "0 0 20px rgba(0, 229, 255, 0.65)",
-              borderColor: "rgba(0, 229, 255, 0.9)"
-            }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              handleResetPrototypeView();
-            }}
-            onPointerDown={handlePrototypePointerDown}
-            onPointerUp={handlePrototypePointerUpOrLeave}
-            onPointerLeave={handlePrototypePointerUpOrLeave}
-            onClick={(e) => {
-              if (isPrototypeLongPressRef.current) {
-                e.preventDefault();
-                e.stopPropagation();
-                isPrototypeLongPressRef.current = false;
-                return;
-              }
-              playUiSound("toggle", soundEffectsEnabled);
-              setPrototypeIconRotation((prev) => prev + 360);
-              if (activeView === "visuals") {
-                setActiveView("blueprint");
-              } else {
-                setActiveView("visuals");
-              }
-            }}
-            className={`p-2 sm:px-2.5 sm:py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-bold text-xs border relative ${
-              activeView === "visuals" || activeView === "blueprint"
-                ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-[0_0_12px_rgba(0,229,255,0.4)]"
-                : "bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700 hover:text-cyan-600 dark:hover:text-cyan-300"
-            }`}
-            title="Image & Prototype Generator (Click to toggle view)"
-            aria-label="Prototype Generator"
-          >
-            {/* Glowing Status Dot Indicator */}
-            <motion.span
-              className={`w-2 h-2 rounded-full shrink-0 ${
-                activeView === "visuals" || activeView === "blueprint"
-                  ? "bg-slate-950 shadow-[0_0_8px_rgba(2,6,23,0.8)]"
-                  : "bg-cyan-500 dark:bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.7)]"
-              }`}
-              animate={{
-                scale: (activeView === "visuals" || activeView === "blueprint") ? [1, 1.45, 1] : [1, 1.25, 1],
-                opacity: (activeView === "visuals" || activeView === "blueprint") ? [0.85, 1, 0.85] : [0.6, 1, 0.6],
-              }}
-              transition={{
-                duration: (activeView === "visuals" || activeView === "blueprint") ? 0.75 : 1.8,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-            <motion.div
-              animate={{ rotate: prototypeIconRotation }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="flex items-center justify-center shrink-0"
-            >
-              <ImageIcon className={`w-4 h-4 ${activeView === "visuals" || activeView === "blueprint" ? "text-slate-950" : "text-cyan-500 dark:text-cyan-400"}`} />
-            </motion.div>
-            <span className="hidden md:inline font-mono text-[11px]">{t.prototypeBtn}</span>
-          </motion.button>
 
           {/* Dark Mode Toggle Button */}
           <button
@@ -1984,17 +2318,68 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute right-0 top-full mt-2 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl p-2 z-50 overflow-hidden max-h-[85vh] overflow-y-auto"
+                  className="absolute right-0 top-full mt-2 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xl rounded-2xl p-2.5 z-50 overflow-hidden max-h-[85vh] overflow-y-auto"
                 >
+                  {/* User Profile & Founder Info Section */}
+                  <div className="p-2.5 mb-2 bg-gradient-to-br from-cyan-500/10 via-slate-900/90 to-blue-950/40 border border-cyan-500/35 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                        User Profile & Personalization
+                      </span>
+                      <span className="text-[8px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        AI Trained
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-0.5">
+                      <div className="min-w-0 pr-2">
+                        <h4 className="font-extrabold text-slate-100 truncate text-xs">
+                          {userProfile.name || "Set Your Name"}
+                        </h4>
+                        <p className="text-[10px] text-slate-300 font-medium truncate mt-0.5">
+                          {userProfile.occupation || "Add your occupation/role"} {userProfile.age ? `• Age ${userProfile.age}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserProfileModalOpen(true);
+                          setSettingsOpen(false);
+                          playUiSound("toggle", soundEffectsEnabled);
+                        }}
+                        className="px-2.5 py-1 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[10px] rounded-lg transition-all cursor-pointer shadow-xs shrink-0 flex items-center gap-1 active:scale-95"
+                      >
+                        <UserCog className="w-3 h-3 text-slate-950" />
+                        {userProfile.isSetupCompleted ? "Edit Profile" : "Set Profile"}
+                      </button>
+                    </div>
+
+                    <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400 font-medium flex items-center gap-1">
+                        <Crown className="w-3 h-3 text-amber-400" /> App Founder: <strong className="text-amber-300">Rohit</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileModalOpen(true);
+                          setSettingsOpen(false);
+                          playUiSound("toggle", soundEffectsEnabled);
+                        }}
+                        className="text-amber-400 hover:underline font-mono text-[9px]"
+                      >
+                        View Credentials
+                      </button>
+                    </div>
+                  </div>
+
                   <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold px-3 py-1.5 block">
                     Synthesizer Views
                   </span>
                   {[
                     { id: "chat", label: "Core Chat Console", icon: MessageSquare, shortcut: "Alt+1" },
                     { id: "evaluator", label: "Viability Evaluator", icon: Lightbulb, shortcut: "Alt+2" },
-                    { id: "blueprint", label: "Interactive Blueprints", icon: Code, shortcut: "Alt+3" },
-                    { id: "visuals", label: "Mockups & Sketches", icon: ImageIcon, shortcut: "Alt+4" },
-                    { id: "writer", label: "Writing Canvas", icon: FileText, shortcut: "Alt+5" },
+                    { id: "writer", label: "Writing Canvas", icon: FileText, shortcut: "Alt+3" },
                   ].map((tab) => {
                     const Icon = tab.icon;
                     const isSelected = activeView === tab.id;
@@ -2400,185 +2785,6 @@ export default function App() {
               ) : (
                 /* Compact Active Chat Message Thread */
                 <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3.5 max-w-3xl w-full mx-auto select-none">
-                  {/* Active Thread Export Header */}
-                  <div id="chat-thread-export-bar" className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-xl px-3 py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                        <MessageSquare className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
-                        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-                          {getActiveSession()?.title || "Current Conversation"}
-                        </h4>
-
-                        {/* Auto Chat Name Selector Button */}
-                        <button
-                          id="btn-auto-chat-name-selector"
-                          onClick={() => handleOpenAutoNameSelector(getActiveSession()?.id)}
-                          className="px-2 py-0.5 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 font-bold text-[9px] flex items-center gap-1 transition-all cursor-pointer border border-cyan-400/30 hover:scale-105 active:scale-95 shadow-2xs shrink-0"
-                          title="Open Auto Chat Name Selector"
-                        >
-                          <Sparkles className="w-2.5 h-2.5 text-cyan-500 animate-pulse" />
-                          Auto Name
-                        </button>
-
-                        {/* Active Session Tags Badges */}
-                        {getActiveSession()?.tags?.map((t) => (
-                          <span
-                            key={t}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800"
-                          >
-                            <Tag className="w-2.5 h-2.5 text-cyan-500" />
-                            {t}
-                            <button
-                              onClick={() => {
-                                const session = getActiveSession();
-                                if (session) {
-                                  handleUpdateSessionTags(
-                                    session.id,
-                                    (session.tags || []).filter((tag) => tag !== t)
-                                  );
-                                }
-                              }}
-                              className="text-cyan-600 hover:text-rose-500 cursor-pointer"
-                            >
-                              <X className="w-2.5 h-2.5" />
-                            </button>
-                          </span>
-                        ))}
-
-                        <button
-                          onClick={() => setActiveTagPopoverOpen(!activeTagPopoverOpen)}
-                          className="px-2 py-0.5 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 font-bold text-[9px] flex items-center gap-1 transition-colors cursor-pointer border border-cyan-400/30"
-                        >
-                          <Tag className="w-2.5 h-2.5" />
-                          {getActiveSession()?.tags?.length ? "Edit Tags" : "+ Add Tag"}
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          onClick={() => {
-                            playUiSound("toggle", soundEffectsEnabled);
-                            handleCreateNewSession();
-                          }}
-                          className="px-2 py-1 bg-cyan-500 text-slate-950 font-bold text-[10px] rounded-lg border border-cyan-400 hover:bg-cyan-400 transition-all hover:scale-105 active:scale-95 flex items-center gap-1 cursor-pointer shadow-2xs"
-                          title="Start New Chat Thread"
-                        >
-                          <Plus className="w-3 h-3 text-slate-950" />
-                          New Chat
-                        </button>
-                        <button
-                          onClick={() => {
-                            const session = getActiveSession();
-                            if (session) {
-                              handleOpenDeleteModal(session.id);
-                            }
-                          }}
-                          className="px-2 py-1 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 font-bold text-[10px] rounded-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-1 cursor-pointer shadow-2xs"
-                          title="Delete Active Chat Thread"
-                        >
-                          <Trash2 className="w-3 h-3 text-rose-500" />
-                          Delete
-                        </button>
-                        <button
-                          id="btn-export-chat-json"
-                          onClick={() => {
-                            const session = getActiveSession();
-                            if (session) exportChatToJson(session);
-                          }}
-                          className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 font-bold text-[10px] rounded-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-1 cursor-pointer shadow-2xs"
-                          title="Export JSON"
-                        >
-                          <FileJson className="w-3 h-3 text-slate-500 dark:text-slate-400" />
-                          JSON
-                        </button>
-                        <button
-                          id="btn-export-chat-pdf"
-                          onClick={() => {
-                            const session = getActiveSession();
-                            if (session) exportChatToHtml(session);
-                          }}
-                          className="px-2 py-1 bg-slate-900 dark:bg-slate-950 text-white font-bold text-[10px] rounded-lg border border-slate-800 hover:bg-slate-800 dark:hover:bg-slate-900 transition-all hover:scale-105 active:scale-95 flex items-center gap-1 cursor-pointer shadow-2xs"
-                          title="Export PDF"
-                        >
-                          <Printer className="w-3 h-3 text-cyan-400" />
-                          PDF
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Tag Popover Form */}
-                    {activeTagPopoverOpen && (
-                      <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex flex-col gap-2">
-                        <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">
-                          <span>SESSION TAGS FOR "{getActiveSession()?.title}"</span>
-                          <button
-                            onClick={() => setActiveTagPopoverOpen(false)}
-                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const session = getActiveSession();
-                            const trimmed = headerNewTagInput.trim();
-                            if (session && trimmed) {
-                              const current = session.tags || [];
-                              if (!current.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
-                                handleUpdateSessionTags(session.id, [...current, trimmed]);
-                              }
-                              setHeaderNewTagInput("");
-                            }
-                          }}
-                          className="flex items-center gap-1.5"
-                        >
-                          <input
-                            type="text"
-                            value={headerNewTagInput}
-                            onChange={(e) => setHeaderNewTagInput(e.target.value)}
-                            placeholder="Type a custom tag (e.g. Strategy, Urgent, Feature)..."
-                            className="flex-1 px-2.5 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-cyan-400"
-                          />
-                          <button
-                            type="submit"
-                            className="px-3 py-1 bg-cyan-500 text-slate-950 font-bold text-xs rounded-lg hover:bg-cyan-400 cursor-pointer shadow-xs"
-                          >
-                            Add Tag
-                          </button>
-                        </form>
-
-                        {/* Preset Tag Buttons */}
-                        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-[9px]">
-                          <span className="text-slate-400 font-mono">Suggestions:</span>
-                          {["Strategy", "Tech", "Idea", "Priority", "Research", "Design", "Feedback"].map((sug) => {
-                            const session = getActiveSession();
-                            const hasTag = session?.tags?.includes(sug);
-                            return (
-                              <button
-                                key={sug}
-                                type="button"
-                                onClick={() => {
-                                  if (session && !hasTag) {
-                                    handleUpdateSessionTags(session.id, [...(session.tags || []), sug]);
-                                  }
-                                }}
-                                className={`px-2 py-0.5 rounded-full border text-[9px] font-bold cursor-pointer transition-colors ${
-                                  hasTag
-                                    ? "bg-cyan-500 text-slate-950 border-cyan-400"
-                                    : "bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400"
-                                }`}
-                              >
-                                +{sug}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
                   {/* Sticky Pinned Messages Bar with Framer Motion slide animation */}
                   <AnimatePresence mode="wait">
                     {allPinnedMessages.length > 0 ? (
@@ -3037,187 +3243,224 @@ export default function App() {
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-[#0b0f19] dark:via-[#0b0f19]/95 dark:to-transparent z-20 select-none">
           <div className="max-w-3xl w-full mx-auto relative space-y-2">
             {/* Dynamic Animated Neon Light Wave Accent indicating active listener */}
-            <div className="h-[2px] w-[95%] mx-auto overflow-hidden rounded-full mb-1">
+            <div className="h-[2.5px] w-[95%] mx-auto overflow-hidden rounded-full mb-1.5 transition-all">
               <div
                 className={`h-full w-full rounded-full transition-all duration-300 ${
-                  isAiProcessing || isListeningVoice
+                  isAiProcessing || isListeningVoice || isInputFocused || inputText.length > 0
                     ? "neon-light-accent opacity-100"
-                    : "bg-slate-100 dark:bg-slate-800 opacity-40"
+                    : "opacity-40"
                 }`}
+                style={{
+                  backgroundColor: !(isAiProcessing || isListeningVoice || isInputFocused || inputText.length > 0)
+                    ? (isDarkMode ? "#1e293b" : "#cbd5e1")
+                    : undefined
+                }}
               />
             </div>
 
-            {/* Bottom Input Box Console with glowing blue neon rounded border ring */}
-            <form
-              onSubmit={handleSendMessage}
-              className="relative flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-slate-900 rounded-full transition-all border-2 neon-border-glowing"
-            >
-              {/* Quick Actions Suggestions Trigger Inside Input Box */}
-              <div className="relative shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setQuickActionsOpen(!quickActionsOpen)}
-                  className={`p-1 px-2 rounded-full border text-[9px] font-extrabold font-mono transition-all cursor-pointer flex items-center gap-1 ${
-                    quickActionsOpen
-                      ? "bg-cyan-500/20 text-[#00e5ff] border-cyan-400/60 shadow-[0_0_8px_rgba(0,229,255,0.3)]"
-                      : "bg-slate-100 dark:bg-slate-800/90 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400/60"
-                  }`}
-                  title="Quick Actions & Suggestions"
-                >
-                  <Sparkles className="w-3 h-3 text-[#00e5ff] animate-pulse" />
-                  <span className="hidden sm:inline">{t.tryButton}</span>
-                  <ChevronUp className={`w-2.5 h-2.5 transition-transform duration-200 ${quickActionsOpen ? "rotate-180 text-[#00e5ff]" : ""}`} />
-                </button>
+            {/* Bottom Input Box Container with Dynamic Illuminating Surrounding Halo */}
+            <div className="relative group">
+              {/* Surrounding Illuminating Backlight Halo */}
+              <div
+                className={`input-surrounding-halo ${
+                  isInputFocused || isAiProcessing || isListeningVoice || inputText.length > 0
+                    ? "input-surrounding-halo-active"
+                    : ""
+                }`}
+                style={{
+                  boxShadow: `0 0 calc(28px * var(--neon-glow-blur-multiplier)) ${themeSettings.accentColor}${themeSettings.neonGlowStrength === 'extreme' ? '75' : themeSettings.neonGlowStrength === 'vibrant' ? '45' : '20'}`
+                }}
+              />
 
-                {/* Quick Actions Popover */}
-                <AnimatePresence>
-                  {quickActionsOpen && (
-                    <>
-                      {/* Backdrop to dismiss on click outside */}
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setQuickActionsOpen(false)}
-                      />
-
-                      <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute bottom-full mb-3 left-0 z-50 w-72 sm:w-80 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl"
-                      >
-                        <div className="flex items-center justify-between px-2 py-1 mb-1.5 border-b border-slate-100 dark:border-slate-800">
-                          <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-[#00e5ff]" /> {t.quickTry}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setQuickActionsOpen(false)}
-                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        <div className="space-y-1">
-                          {[
-                            { icon: "💡", label: "Analyze AI study planner SaaS", desc: "Monetization, viral loops & target domain analysis", prompt: "Analyze micro-SaaS idea for AI study planner with viral loops and revenue model" },
-                            { icon: "🚀", label: "Draft auth engine spec", desc: "JWT, OAuth2, session refresh & security architecture", prompt: "Draft technical spec for scalable auth engine with JWT, OAuth2 and session refresh" },
-                            { icon: "🎨", label: "Generate dark dashboard UI", desc: "Modern UI wireframe & layout component breakdown", prompt: "Generate UI wireframe layout for dark mode dashboard with metrics analytics" },
-                            { icon: "⚡", label: "Evaluate business model & risks", desc: "Identify key risks, unit economics & competitors", prompt: "Evaluate the unit economics, risks, and competitor advantages for my startup concept" },
-                          ].map((item, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                setQuickActionsOpen(false);
-                                handleSendMessage(undefined, item.prompt);
-                              }}
-                              className="w-full text-left p-2 rounded-xl hover:bg-cyan-50 dark:hover:bg-cyan-950/50 border border-transparent hover:border-cyan-200 dark:hover:border-cyan-800/60 transition-all cursor-pointer group flex items-start gap-2.5"
-                            >
-                              <span className="text-sm p-1 rounded-lg bg-slate-100 dark:bg-slate-800 shrink-0">{item.icon}</span>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
-                                  {item.label}
-                                </div>
-                                <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                                  {item.desc}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Attachment Button (+) */}
-              <button
-                type="button"
-                onClick={handleTriggerAttachment}
-                className="p-1.5 rounded-full bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
-                title="Attach Sketch / Image"
+              {/* Console Input Box */}
+              <form
+                onSubmit={handleSendMessage}
+                className="relative flex items-center gap-2 px-3.5 sm:px-4 py-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-full transition-all border select-text"
+                style={{
+                  borderColor: isInputFocused || inputText.length > 0 || isListeningVoice || isAiProcessing
+                    ? themeSettings.accentColor
+                    : isDarkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+                  boxShadow: isInputFocused || isAiProcessing
+                    ? `0 0 calc(20px * var(--neon-glow-blur-multiplier)) ${themeSettings.accentColor}50, inset 0 0 calc(8px * var(--neon-glow-blur-multiplier)) ${themeSettings.accentColor}20`
+                    : `0 8px 32px rgba(0,0,0,0.08), 0 0 calc(12px * var(--neon-glow-blur-multiplier)) ${themeSettings.accentColor}20`
+                }}
               >
-                <Paperclip className="w-4 h-4" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAttachmentChange}
-                className="hidden"
-              />
-
-              {/* Text input */}
-              <input
-                ref={chatInputRef}
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder={t.inputPlaceholder}
-                className="flex-1 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 font-sans focus:outline-none focus:ring-0 bg-transparent py-1.5 min-w-0"
-              />
-
-              {/* Float Thumbnail of loaded attachment if any */}
-              {attachedImage && (
-                <div className="relative shrink-0 pr-1.5">
-                  <div className="w-8 h-8 rounded border border-cyan-400 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                    <img
-                      src={`data:${attachedImage.mimeType};base64,${attachedImage.base64}`}
-                      alt="Thumbnail attachment"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                {/* Quick Actions Suggestions Trigger Inside Input Box */}
+                <div className="relative shrink-0">
                   <button
                     type="button"
-                    onClick={() => setAttachedImage(null)}
-                    className="absolute -top-1.5 -right-1.5 p-0.5 bg-rose-500 rounded-full text-white cursor-pointer"
+                    onClick={() => setQuickActionsOpen(!quickActionsOpen)}
+                    className="p-1 px-2 rounded-full border text-[9px] font-extrabold font-mono transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                    style={{
+                      borderColor: `${themeSettings.accentColor}70`,
+                      color: themeSettings.accentColor,
+                      backgroundColor: quickActionsOpen ? `${themeSettings.accentColor}25` : `${themeSettings.accentColor}10`,
+                      boxShadow: quickActionsOpen ? `0 0 10px ${themeSettings.accentColor}40` : undefined
+                    }}
+                    title="Quick Actions & Suggestions"
                   >
-                    <X className="w-2.5 h-2.5" />
+                    <Sparkles className="w-3 h-3 animate-pulse" style={{ color: themeSettings.accentColor }} />
+                    <span className="hidden sm:inline">{t.tryButton}</span>
+                    <ChevronUp className={`w-2.5 h-2.5 transition-transform duration-200 ${quickActionsOpen ? "rotate-180" : ""}`} />
                   </button>
+
+                  {/* Quick Actions Popover */}
+                  <AnimatePresence>
+                    {quickActionsOpen && (
+                      <>
+                        {/* Backdrop to dismiss on click outside */}
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setQuickActionsOpen(false)}
+                        />
+
+                        <motion.div
+                          initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute bottom-full mb-3 left-0 z-50 w-72 sm:w-80 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl"
+                        >
+                          <div className="flex items-center justify-between px-2 py-1 mb-1.5 border-b border-slate-100 dark:border-slate-800">
+                            <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider flex items-center gap-1.5" style={{ color: themeSettings.accentColor }}>
+                              <Sparkles className="w-3.5 h-3.5" style={{ color: themeSettings.accentColor }} /> {t.quickTry}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setQuickActionsOpen(false)}
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-1">
+                            {[
+                              { icon: "💡", label: "Analyze AI study planner SaaS", desc: "Monetization, viral loops & target domain analysis", prompt: "Analyze micro-SaaS idea for AI study planner with viral loops and revenue model" },
+                              { icon: "🚀", label: "Draft auth engine spec", desc: "JWT, OAuth2, session refresh & security architecture", prompt: "Draft technical spec for scalable auth engine with JWT, OAuth2 and session refresh" },
+                              { icon: "🎨", label: "Generate dark dashboard UI", desc: "Modern UI wireframe & layout component breakdown", prompt: "Generate UI wireframe layout for dark mode dashboard with metrics analytics" },
+                              { icon: "⚡", label: "Evaluate business model & risks", desc: "Identify key risks, unit economics & competitors", prompt: "Evaluate the unit economics, risks, and competitor advantages for my startup concept" },
+                            ].map((item, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setQuickActionsOpen(false);
+                                  handleSendMessage(undefined, item.prompt);
+                                }}
+                                className="w-full text-left p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer group flex items-start gap-2.5"
+                              >
+                                <span className="text-sm p-1 rounded-lg bg-slate-100 dark:bg-slate-800 shrink-0">{item.icon}</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-cyan-500 transition-colors">
+                                    {item.label}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                                    {item.desc}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
                 </div>
-              )}
 
-              {/* Voice record action icon */}
-              <button
-                type="button"
-                onClick={handleToggleVoiceInput}
-                className={`p-1.5 rounded-full transition-all shrink-0 cursor-pointer flex items-center justify-center ${
-                  isListeningVoice
-                    ? "bg-rose-500 text-white animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.6)]"
-                    : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400"
-                }`}
-                title={isListeningVoice ? "Listening... Click to stop" : "Voice Input (Speech-to-Text)"}
-              >
-                <Mic className="w-4 h-4" />
-              </button>
+                {/* Attachment Button (+) */}
+                <button
+                  type="button"
+                  onClick={handleTriggerAttachment}
+                  className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
+                  title="Attach Sketch / Image"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAttachmentChange}
+                  className="hidden"
+                />
 
-              {/* Send button */}
-              <button
-                type="submit"
-                disabled={!inputText.trim() && !attachedImage}
-                className="p-2 rounded-full bg-[#00e5ff] text-slate-950 font-bold hover:bg-[#00cce6] hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:hover:scale-100 cursor-pointer shrink-0 shadow-[0_0_12px_rgba(0,229,255,0.4)] flex items-center justify-center"
-                title="Send to CORE (Enter)"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
+                {/* Text input */}
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  value={inputText}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={t.inputPlaceholder}
+                  className="flex-1 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 font-sans focus:outline-none focus:ring-0 bg-transparent py-1 min-w-0"
+                />
+
+                {/* Float Thumbnail of loaded attachment if any */}
+                {attachedImage && (
+                  <div className="relative shrink-0 pr-1.5">
+                    <div className="w-8 h-8 rounded border overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center" style={{ borderColor: themeSettings.accentColor }}>
+                      <img
+                        src={`data:${attachedImage.mimeType};base64,${attachedImage.base64}`}
+                        alt="Thumbnail attachment"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedImage(null)}
+                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-rose-500 rounded-full text-white cursor-pointer"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Voice record action icon */}
+                <button
+                  type="button"
+                  onClick={handleToggleVoiceInput}
+                  className={`p-1.5 rounded-full transition-all shrink-0 cursor-pointer flex items-center justify-center ${
+                    isListeningVoice
+                      ? "bg-rose-500 text-white animate-pulse shadow-[0_0_14px_rgba(244,63,94,0.7)]"
+                      : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+                  }`}
+                  title={isListeningVoice ? "Listening... Click to stop" : "Voice Input (Speech-to-Text)"}
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+
+                {/* Illuminated Send button matching active theme */}
+                <button
+                  type="submit"
+                  disabled={!inputText.trim() && !attachedImage}
+                  className="p-2 rounded-full text-slate-950 font-black hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:hover:scale-100 cursor-pointer shrink-0 flex items-center justify-center"
+                  style={{
+                    backgroundColor: themeSettings.accentColor,
+                    boxShadow: !inputText.trim() && !attachedImage ? undefined : `0 0 16px ${themeSettings.accentColor}90`
+                  }}
+                  title="Send to CORE (Enter)"
+                >
+                  <Send className="w-3.5 h-3.5 text-slate-950" />
+                </button>
+              </form>
+            </div>
 
             {/* Quick help status */}
-            <div className="flex items-center justify-between px-2 select-none text-[9px] font-mono text-slate-400">
-              <div className="flex items-center gap-2 truncate">
+            <div className="flex items-center justify-between px-3 pt-1 select-none text-[9px] font-mono text-slate-400 dark:text-slate-500">
+              <div className="flex items-center gap-2 truncate pr-2">
                 <span className="truncate">{userEmail}</span>
                 <span className="hidden sm:inline">•</span>
                 <span className="hidden sm:inline">
-                  <kbd className="px-1 py-0.5 bg-slate-100 border border-slate-200 rounded font-sans text-[8px] font-bold text-slate-500">Ctrl+K</kbd> focus
+                  <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded font-sans text-[8px] font-bold text-slate-500 dark:text-slate-400">Ctrl+K</kbd> focus
                 </span>
               </div>
               <button
+                type="button"
                 onClick={() => setVoicePlaybackEnabled(!voicePlaybackEnabled)}
-                className="text-[9px] font-mono font-bold text-slate-400 hover:text-cyan-500 flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+                className="text-[9px] font-mono font-bold text-slate-400 dark:text-slate-500 hover:text-cyan-500 dark:hover:text-cyan-400 flex items-center gap-1 cursor-pointer transition-colors shrink-0"
               >
                 {voicePlaybackEnabled ? (
                   <>
@@ -3285,6 +3528,10 @@ export default function App() {
         onOpenAutoNameSelector={handleOpenAutoNameSelector}
         currentLanguage={currentLanguage}
         onChangeLanguage={setCurrentLanguage}
+        ownerProfile={ownerProfile}
+        onSaveOwnerProfile={handleSaveOwnerProfile}
+        userProfile={userProfile}
+        onSaveUserProfile={handleSaveUserProfile}
       />
 
       {/* Keyboard Shortcuts Modal */}
@@ -3350,27 +3597,11 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="text-slate-500 font-sans">3. Prototype Blueprint</span>
+                    <span className="text-slate-500 font-sans">3. Writing Canvas</span>
                     <div className="flex gap-1">
                       <kbd className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 font-mono text-[10px] rounded">Alt</kbd>
                       <span className="text-slate-300 font-mono text-[10px]">+</span>
                       <kbd className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 font-mono text-[10px] rounded">3</kbd>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="text-slate-500 font-sans">4. Mockups & Sketches</span>
-                    <div className="flex gap-1">
-                      <kbd className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 font-mono text-[10px] rounded">Alt</kbd>
-                      <span className="text-slate-300 font-mono text-[10px]">+</span>
-                      <kbd className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 font-mono text-[10px] rounded">4</kbd>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="text-slate-500 font-sans">5. Writing Canvas</span>
-                    <div className="flex gap-1">
-                      <kbd className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 font-mono text-[10px] rounded">Alt</kbd>
-                      <span className="text-slate-300 font-mono text-[10px]">+</span>
-                      <kbd className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 font-mono text-[10px] rounded">5</kbd>
                     </div>
                   </div>
                 </div>
@@ -3597,6 +3828,62 @@ export default function App() {
           onClose={() => setActiveMarketReport(null)}
         />
       )}
+
+      {/* Owner Info Modal (Read-Only) */}
+      <OwnerInfoModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        profile={ownerProfile}
+      />
+
+      {/* User Profile Personalization Modal */}
+      <UserProfileModal
+        isOpen={userProfileModalOpen}
+        onClose={() => setUserProfileModalOpen(false)}
+        profile={userProfile}
+        onSave={handleSaveUserProfile}
+      />
+
+      {/* Profile Save Toast Notification */}
+      <AnimatePresence>
+        {profileSaveToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-amber-500/50 shadow-2xl text-slate-100 flex items-center gap-3"
+          >
+            <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center shrink-0">
+              <Crown className="w-5 h-5 text-slate-950" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-400">Founder Info Loaded!</h4>
+              <p className="text-[10px] text-slate-300">
+                {ownerProfile.name}'s class ({ownerProfile.className}) & age ({ownerProfile.age}) verified in system memory.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {userProfileSaveToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-cyan-500/50 shadow-2xl text-slate-100 flex items-center gap-3"
+          >
+            <div className="w-9 h-9 rounded-xl bg-cyan-400 text-slate-950 font-black flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-slate-950" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-cyan-400">User Profile Saved!</h4>
+              <p className="text-[10px] text-slate-300">
+                CORE AI learned your details ({userProfile.name || "User"}) & updated personalization settings.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -441,18 +441,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   <span>Evaluate Concept</span>
                 </button>
               )}
-
-              {onTriggerGuidance && (
-                <button
-                  type="button"
-                  onClick={() => onTriggerGuidance(message.text)}
-                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-cyan-400 dark:hover:border-cyan-500 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all cursor-pointer shadow-2xs flex items-center gap-1"
-                  title="Generate step-by-step technical blueprint"
-                >
-                  <Code2 className="w-3 h-3 text-[#00e5ff]" />
-                  <span>Build Blueprint</span>
-                </button>
-              )}
             </div>
 
             {/* Embedded Market Analysis Report Card directly in the Chat Thread */}

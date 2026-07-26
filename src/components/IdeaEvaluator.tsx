@@ -303,34 +303,6 @@ export default function IdeaEvaluator({
         </div>
       ) : null}
 
-      {/* Launch Prototype Action Banner */}
-      <div className="p-[1.5px] rounded-2xl neon-border bg-gradient-to-r from-cyan-400 to-blue-500 shadow-md">
-        <div className="bg-white rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="text-center sm:text-left">
-            <h3 className="text-lg font-bold font-display text-slate-950">Ready to execute this prototype?</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-md">
-              Let CORE AI generate a customized, step-by-step interactive blueprint and wireframe concept for this MVP right now.
-            </p>
-          </div>
-          <button
-            onClick={() => onGenerateGuidance(evaluation.idea, evaluation.title)}
-            disabled={isGeneratingGuidance}
-            className="w-full sm:w-auto px-6 py-3 bg-[#00e5ff] text-slate-950 font-bold font-display text-xs rounded-xl hover:bg-[#00b0ff] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,229,255,0.4)] disabled:opacity-50 cursor-pointer"
-          >
-            {isGeneratingGuidance ? (
-              <span className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                Synthesizing...
-              </span>
-            ) : (
-              <>
-                Build Blueprint
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </div>
-      </div>
     </motion.div>
   );
 }

@@ -19,9 +19,17 @@ import {
   Filter,
   Search,
   Globe,
-  Trash2
+  Trash2,
+  Crown,
+  Award,
+  BarChart3,
+  CheckCircle2,
+  GraduationCap,
+  UserCheck,
+  AlertCircle,
+  ChevronDown
 } from "lucide-react";
-import { UIMode, IdeaEvaluation, CustomInstructions, ThemeSettings, ChatSession, AppLanguage } from "../types";
+import { UIMode, IdeaEvaluation, CustomInstructions, ThemeSettings, ChatSession, AppLanguage, OwnerProfile, UserProfile } from "../types";
 import { LANGUAGE_OPTIONS } from "../lib/translations";
 
 interface SidebarProps {
@@ -46,10 +54,14 @@ interface SidebarProps {
   onOpenAutoNameSelector?: (sessionId: string) => void;
   currentLanguage?: AppLanguage;
   onChangeLanguage?: (lang: AppLanguage) => void;
+  ownerProfile?: OwnerProfile;
+  onSaveOwnerProfile?: (profile: OwnerProfile) => void;
+  userProfile?: UserProfile;
+  onSaveUserProfile?: (profile: UserProfile) => void;
 }
 
 
-type SidebarSubTab = "menu" | "profile" | "ideas" | "instructions" | "modes" | "themes" | "chats" | "xfactor";
+type SidebarSubTab = "menu" | "owner" | "profile" | "ideas" | "instructions" | "modes" | "themes" | "chats" | "xfactor";
 
 export default function Sidebar({
   isOpen,
@@ -72,8 +84,44 @@ export default function Sidebar({
   onOpenAutoNameSelector,
   currentLanguage = "en",
   onChangeLanguage,
+  ownerProfile = { name: "Rohit", className: "11th", age: "15", appTitle: "ASCEND STUDY / CORE AI" },
+  onSaveOwnerProfile,
+  userProfile = { name: "", occupation: "", age: "", details: "" },
+  onSaveUserProfile
 }: SidebarProps) {
   const [activeSubTab, setActiveSubTab] = useState<SidebarSubTab>("menu");
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+
+  const [ownerForm, setOwnerForm] = useState<OwnerProfile>(ownerProfile);
+  const [userForm, setUserForm] = useState<UserProfile>(userProfile);
+  const [sidebarAgeError, setSidebarAgeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOwnerForm(ownerProfile);
+    setSidebarAgeError(null);
+  }, [ownerProfile]);
+
+  useEffect(() => {
+    if (userProfile) {
+      setUserForm(userProfile);
+    }
+  }, [userProfile]);
+
+  const handleSidebarAgeChange = (val: string) => {
+    setOwnerForm((prev) => ({ ...prev, age: val }));
+    if (!val.trim()) {
+      setSidebarAgeError("Age is required.");
+    } else if (/\D/.test(val.trim())) {
+      setSidebarAgeError("Only numeric values are accepted (e.g. 15).");
+    } else {
+      const num = parseInt(val.trim(), 10);
+      if (num < 1 || num > 120) {
+        setSidebarAgeError("Please enter a valid age between 1 and 120.");
+      } else {
+        setSidebarAgeError(null);
+      }
+    }
+  };
 
   // Tag Filtering & Editing States
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
@@ -228,6 +276,32 @@ export default function Sidebar({
                   <span className="text-[10px] font-mono tracking-widest text-slate-400 dark:text-slate-500 uppercase font-bold px-1.5 block mb-2">
                     CORE NAVIGATION
                   </span>
+
+                  {/* App Owner / Malik Chart Option */}
+                  <button
+                    onClick={() => setActiveSubTab("owner")}
+                    className="w-full text-left p-3.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-cyan-500/10 to-purple-500/15 border border-amber-500/35 hover:border-amber-400/70 transition-all flex items-center justify-between group cursor-pointer shadow-sm mb-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-950 rounded-xl font-bold shadow-[0_0_12px_rgba(245,158,11,0.4)] group-hover:scale-105 transition-transform">
+                        <Crown className="w-4 h-4 text-slate-950" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-black tracking-wide text-amber-500 dark:text-amber-400 uppercase">
+                            App Malik / Creator Chart
+                          </h4>
+                          <span className="text-[8px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+                            Memory Saved
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 mt-0.5">
+                          {ownerForm.name} • Class {ownerForm.className} • Age {ownerForm.age}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-amber-500 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
 
                   {/* Profile Option */}
                   <button
@@ -389,27 +463,269 @@ export default function Sidebar({
               )}
 
               {/* Sub-panels */}
+              {activeSubTab === "owner" && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <button onClick={() => setActiveSubTab("menu")} className="text-xs text-[#00e5ff] font-bold cursor-pointer">← Back</button>
+                    <h3 className="text-sm font-bold font-display text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <Crown className="w-4 h-4 text-amber-500" />
+                      App Creator & Owner Chart
+                    </h3>
+                  </div>
+
+                  {/* Creator Hero Card */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950 border border-amber-500/40 text-slate-100 space-y-4 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+                    
+                    <div className="flex items-start gap-3.5 relative z-10">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 via-amber-500 to-amber-300 p-0.5 shadow-[0_0_15px_rgba(245,158,11,0.5)] shrink-0">
+                        <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-amber-400 font-extrabold text-lg">
+                          <Crown className="w-6 h-6 text-amber-400 animate-bounce" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-base font-black text-amber-400 tracking-wide uppercase truncate">{ownerForm.name}</h2>
+                          <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                            MALIK / OWNER
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <GraduationCap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <span>Class {ownerForm.className}</span>
+                          <span className="text-amber-500/60">•</span>
+                          <span>Age {ownerForm.age} Years</span>
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Founder, Creator & Chief Architect of {ownerForm.appTitle}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/80">
+                      <div className="bg-slate-950/70 p-2 rounded-xl border border-slate-800 text-center">
+                        <span className="text-[9px] font-mono text-slate-400 block">MALIK / NAME</span>
+                        <span className="text-xs font-bold text-amber-400 block mt-0.5 truncate">{ownerForm.name}</span>
+                      </div>
+                      <div className="bg-slate-950/70 p-2 rounded-xl border border-slate-800 text-center">
+                        <span className="text-[9px] font-mono text-slate-400 block">CLASS</span>
+                        <span className="text-xs font-bold text-cyan-400 block mt-0.5 truncate">{ownerForm.className}</span>
+                      </div>
+                      <div className="bg-slate-950/70 p-2 rounded-xl border border-slate-800 text-center">
+                        <span className="text-[9px] font-mono text-slate-400 block">AGE</span>
+                        <span className="text-xs font-bold text-emerald-400 block mt-0.5 truncate">{ownerForm.age} Yrs</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Read-Only App Owner Credentials Card */}
+                  <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/30 space-y-3 relative overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                        <Crown className="w-4 h-4 text-amber-400" />
+                        Official Founder & Owner Credentials
+                      </span>
+                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        LOCKED / READ-ONLY
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 pt-1">
+                      <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800">
+                        <span className="text-[9px] font-mono text-slate-400 block">FOUNDER / MALIK</span>
+                        <span className="text-xs font-bold text-amber-300 block mt-0.5">Rohit</span>
+                      </div>
+                      <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800">
+                        <span className="text-[9px] font-mono text-slate-400 block">CLASS</span>
+                        <span className="text-xs font-bold text-cyan-300 block mt-0.5">11th Grade</span>
+                      </div>
+                      <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800">
+                        <span className="text-[9px] font-mono text-slate-400 block">AGE</span>
+                        <span className="text-xs font-bold text-emerald-300 block mt-0.5">15 Years Old</span>
+                      </div>
+                      <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800">
+                        <span className="text-[9px] font-mono text-slate-400 block">APPLICATION</span>
+                        <span className="text-xs font-bold text-purple-300 block mt-0.5 truncate">ASCEND STUDY / CORE AI</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-400 italic bg-amber-500/5 p-2 rounded-lg border border-amber-500/20 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>The Owner Profile is permanently assigned to Rohit as creator and cannot be changed by anyone.</span>
+                    </p>
+                  </div>
+
+                  {/* Attributes & Capability Chart Card */}
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <BarChart3 className="w-4 h-4 text-cyan-500" />
+                        Owner Capability & Profile Chart
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-400">VERIFIED</span>
+                    </div>
+
+                    <div className="space-y-2.5 pt-1">
+                      <div>
+                        <div className="flex justify-between text-[11px] font-medium mb-1">
+                          <span className="text-slate-600 dark:text-slate-300">AI Architecture & Vision</span>
+                          <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">98%</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full w-[98%]" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] font-medium mb-1">
+                          <span className="text-slate-600 dark:text-slate-300">Class 11th Logic & Academics</span>
+                          <span className="font-mono font-bold text-amber-600 dark:text-amber-400">96%</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full w-[96%]" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] font-medium mb-1">
+                          <span className="text-slate-600 dark:text-slate-300">App Malik & Creator Rights</span>
+                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">100%</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full w-[100%]" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Permanent AI Memory Banner */}
+                  <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <span className="font-bold block">AI Permanent Memory Sync Active</span>
+                      <p className="text-[10px] text-emerald-600/90 dark:text-emerald-400 mt-0.5 leading-relaxed">
+                        The AI engine permanently stores <strong>Rohit (Class 11th, Age 15)</strong> as the owner/malik of this app in all chat models.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeSubTab === "profile" && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <button onClick={() => setActiveSubTab("menu")} className="text-xs text-[#00e5ff] font-bold cursor-pointer">← Back</button>
-                    <h3 className="text-sm font-bold font-display text-slate-800">My Profile</h3>
+                    <h3 className="text-sm font-bold font-display text-slate-800 dark:text-slate-100">User Profile & Personalization</h3>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-xl space-y-3">
+
+                  {/* Creator Card inside Profile */}
+                  <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-slate-900 to-amber-950/40 border border-amber-500/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold text-amber-500 uppercase flex items-center gap-1">
+                        <Crown className="w-3.5 h-3.5" />
+                        APP MALIK / CREATOR
+                      </span>
+                      <button
+                        onClick={() => setActiveSubTab("owner")}
+                        className="text-[10px] font-bold text-amber-400 hover:underline cursor-pointer"
+                      >
+                        View Full Credentials →
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center text-sm shadow shrink-0">
+                        R
+                      </div>
+                      <div className="overflow-hidden">
+                        <h4 className="text-xs font-bold text-slate-100">Rohit</h4>
+                        <p className="text-[10px] text-slate-400">Class 11th • Age 15 • App Founder & Owner</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Editable User Profile Form */}
+                  <div className="p-4 bg-slate-900/90 rounded-xl border border-cyan-500/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
+                        <User className="w-4 h-4 text-cyan-400" />
+                        Your Profile Details
+                      </span>
+                      <span className="text-[9px] font-mono text-cyan-300/80 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800/50">AI TRAINED</span>
+                    </div>
+
+                    <div className="space-y-2.5 pt-1">
+                      <div>
+                        <label className="text-[10px] font-mono text-slate-400 block mb-1">Your Name</label>
+                        <input
+                          type="text"
+                          value={userForm.name}
+                          onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                          placeholder="e.g. Rahul Sharma"
+                          className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 font-semibold focus:outline-none focus:border-cyan-400"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-mono text-slate-400 block mb-1">What You Do</label>
+                          <input
+                            type="text"
+                            value={userForm.occupation}
+                            onChange={(e) => setUserForm({ ...userForm, occupation: e.target.value })}
+                            placeholder="e.g. Student / Developer"
+                            className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 font-semibold focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-mono text-slate-400 block mb-1">Your Age</label>
+                          <input
+                            type="text"
+                            value={userForm.age}
+                            onChange={(e) => setUserForm({ ...userForm, age: e.target.value })}
+                            placeholder="e.g. 17"
+                            className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 font-semibold focus:outline-none focus:border-cyan-400"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-mono text-slate-400 block mb-1">About You & Preferences</label>
+                        <textarea
+                          rows={2}
+                          value={userForm.details}
+                          onChange={(e) => setUserForm({ ...userForm, details: e.target.value })}
+                          placeholder="e.g. Interested in Physics & AI. Prefer visual step-by-step code examples."
+                          className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 font-medium focus:outline-none focus:border-cyan-400 resize-none"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSaveUserProfile) {
+                            onSaveUserProfile(userForm);
+                          }
+                        }}
+                        className="w-full py-2 bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-black text-xs rounded-lg transition-all cursor-pointer shadow-md shadow-cyan-500/20 active:scale-95 flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-slate-950" />
+                        Save Your Profile
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl space-y-3">
                     <div className="space-y-1">
                       <span className="text-[9px] font-mono text-slate-400 block">EMAIL ADDRESS</span>
-                      <span className="text-xs font-semibold text-slate-700 block truncate">{userEmail || "Not logged in"}</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block truncate">{userEmail || "Not logged in"}</span>
                     </div>
-                    <div className="space-y-1 border-t border-slate-200/50 pt-2.5">
+                    <div className="space-y-1 border-t border-slate-200/50 dark:border-slate-700/50 pt-2.5">
                       <span className="text-[9px] font-mono text-slate-400 block">ACCOUNT STANDING</span>
                       <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
                         ACTIVE MEMBER
                       </span>
-                    </div>
-                    <div className="space-y-1 border-t border-slate-200/50 pt-2.5">
-                      <span className="text-[9px] font-mono text-slate-400 block">ANALYSED CONCEPTS</span>
-                      <span className="text-xs font-bold text-slate-800 block">{ideas.length} Ideas logged</span>
                     </div>
                   </div>
                 </div>
@@ -566,11 +882,15 @@ export default function Sidebar({
                           <button
                             key={lvl}
                             type="button"
-                            onClick={() => setThemeForm({ ...themeForm, neonGlowStrength: lvl as any })}
+                            onClick={() => {
+                              const updated = { ...themeForm, neonGlowStrength: lvl as any };
+                              setThemeForm(updated);
+                              onSaveTheme(updated);
+                            }}
                             className={`p-2 rounded-lg border text-[10px] font-bold uppercase transition-all cursor-pointer ${
                               themeForm.neonGlowStrength === lvl
-                                ? "bg-slate-50 border-cyan-400 text-slate-900"
-                                : "bg-white border-slate-100 text-slate-400"
+                                ? "bg-slate-50 border-cyan-400 text-slate-900 shadow-sm"
+                                : "bg-white border-slate-100 text-slate-400 hover:border-slate-300"
                             }`}
                           >
                             {lvl}
@@ -600,9 +920,13 @@ export default function Sidebar({
                             <button
                               key={color.value}
                               type="button"
-                              onClick={() => setThemeForm({ ...themeForm, accentColor: color.value })}
+                              onClick={() => {
+                                const updated = { ...themeForm, accentColor: color.value };
+                                setThemeForm(updated);
+                                onSaveTheme(updated);
+                              }}
                               className={`h-9 rounded-xl border flex items-center justify-center relative cursor-pointer hover:scale-105 transition-transform ${
-                                isSelected ? "border-slate-800 ring-2 ring-slate-100" : "border-slate-150"
+                                isSelected ? "border-slate-800 ring-2 ring-slate-100 scale-105" : "border-slate-150"
                               }`}
                               style={{ backgroundColor: color.value }}
                               title={color.name}
@@ -627,13 +951,23 @@ export default function Sidebar({
                         <input
                           type="color"
                           value={themeForm.accentColor}
-                          onChange={(e) => setThemeForm({ ...themeForm, accentColor: e.target.value })}
+                          onChange={(e) => {
+                            const updated = { ...themeForm, accentColor: e.target.value };
+                            setThemeForm(updated);
+                            onSaveTheme(updated);
+                          }}
                           className="w-12 h-9 p-0.5 rounded-lg border border-slate-200 bg-white cursor-pointer shrink-0"
                         />
                         <input
                           type="text"
                           value={themeForm.accentColor.toUpperCase()}
-                          onChange={(e) => setThemeForm({ ...themeForm, accentColor: e.target.value })}
+                          onChange={(e) => {
+                            const updated = { ...themeForm, accentColor: e.target.value };
+                            setThemeForm(updated);
+                            if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                              onSaveTheme(updated);
+                            }
+                          }}
                           className="flex-1 p-2 border border-slate-150 rounded-lg text-xs font-mono text-slate-700 bg-white focus:outline-none focus:border-cyan-400 uppercase"
                           placeholder="#00E5FF"
                           maxLength={7}

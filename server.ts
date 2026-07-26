@@ -330,86 +330,274 @@ function generateFallbackXFactor(idea: string) {
 
 function generateFallbackMarketAnalysis(idea: string) {
   const words = idea.split(" ").filter(Boolean);
-  const cleanTitle = words.slice(0, 4).join(" ") || "Startup Venture";
+  const cleanTitle = words.slice(0, 5).join(" ") || "Startup Venture";
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const lowerIdea = idea.toLowerCase();
+
+  // 1. Detect Domain / Industry Sector & tailoring
+  let category = "Software & Technology SaaS";
+  let tamEstimate = "$180 Billion";
+  let samEstimate = "$24 Billion";
+  let somEstimate = "$750 Million";
+  let persona = "Product Leaders, Founders & Business Operations";
+  let painPoints = [
+    "High manual overhead and inefficient legacy workflow tools",
+    "Lack of real-time data integration and actionable insights",
+    "High software acquisition and subscription overhead"
+  ];
+  let pricingModel = "Tiered SaaS ($29/mo Starter, $99/mo Business, $299/mo Enterprise)";
+  let estimatedCac = "$45 per acquired user";
+  let estimatedLtv = "$620 (14-month average retention)";
+  let paybackPeriod = "2.2 Months";
+  let competitors = [
+    {
+      name: "Established Enterprise Incumbents",
+      strengths: "Large historical market share and deep distribution networks.",
+      weakness: "Slow innovation velocity, complex onboarding, and high annual contract minimums.",
+      ourEdge: "10x faster execution, modern AI automation, and zero-friction self-serve onboarding."
+    },
+    {
+      name: "Generic Point Solutions",
+      strengths: "Low cost entry point and simple narrow features.",
+      weakness: "Lack of end-to-end integration and poor data scalability.",
+      ourEdge: "Unified end-to-end platform architecture with automated reporting artifacts."
+    }
+  ];
+
+  if (
+    lowerIdea.includes("learn") ||
+    lowerIdea.includes("study") ||
+    lowerIdea.includes("student") ||
+    lowerIdea.includes("school") ||
+    lowerIdea.includes("course") ||
+    lowerIdea.includes("tutor") ||
+    lowerIdea.includes("exam") ||
+    lowerIdea.includes("education") ||
+    lowerIdea.includes("ascend")
+  ) {
+    category = "EdTech & Educational AI";
+    tamEstimate = "$340 Billion";
+    samEstimate = "$48 Billion";
+    somEstimate = "$1.4 Billion";
+    persona = "Students, Educators, Academic Institutions & Self-Learners";
+    painPoints = [
+      "Monotonous rote learning methods leading to low retention and student burnout",
+      "Lack of personalized 1-on-1 tutoring at an affordable cost structure",
+      "Difficulty tracking real-time conceptual mastery and exam readiness"
+    ];
+    pricingModel = "Freemium ($9.99/mo Student Pro, $49/mo Educator, $199/mo Institutional)";
+    estimatedCac = "$18 per student";
+    estimatedLtv = "$240 (2-year average student lifecycle)";
+    paybackPeriod = "1.8 Months";
+    competitors = [
+      {
+        name: "Duolingo / Quizlet",
+        strengths: "Massive consumer brand recognition, gamified user retention, and viral loops.",
+        weakness: "Limited to basic flashcards and rote drills without deep conceptual AI tutoring.",
+        ourEdge: "Interactive AI study assistant, real-time code/text evaluation, and instant PDF report generation."
+      },
+      {
+        name: "Coursera / Udemy",
+        strengths: "Large course library with university accreditation partnerships.",
+        weakness: "Passive video lectures with low completion rates (<10%) and static content.",
+        ourEdge: "Active, conversational AI study loops with personalized real-time feedback."
+      }
+    ];
+  } else if (
+    lowerIdea.includes("fit") ||
+    lowerIdea.includes("health") ||
+    lowerIdea.includes("workout") ||
+    lowerIdea.includes("gym") ||
+    lowerIdea.includes("doctor") ||
+    lowerIdea.includes("medical") ||
+    lowerIdea.includes("wellness") ||
+    lowerIdea.includes("diet")
+  ) {
+    category = "HealthTech & Digital Wellness";
+    tamEstimate = "$520 Billion";
+    samEstimate = "$72 Billion";
+    somEstimate = "$2.1 Billion";
+    persona = "Fitness Enthusiasts, Patients & Healthcare Professionals";
+    painPoints = [
+      "Inconsistent health tracking across fragmented wearable devices",
+      "High cost of personal trainers and clinical wellness consultations",
+      "Lack of personalized, real-time feedback tailored to individual progress"
+    ];
+    pricingModel = "Subscription ($14.99/mo Consumer, $99/mo Clinic Tier)";
+    estimatedCac = "$28 per user";
+    estimatedLtv = "$380 (18-month average retention)";
+    paybackPeriod = "2.0 Months";
+    competitors = [
+      {
+        name: "Strava / MyFitnessPal",
+        strengths: "Strong social community feeds and vast historical activity logs.",
+        weakness: "Basic logging capabilities with minimal automated coaching or clinical AI depth.",
+        ourEdge: "Context-aware AI health insights, real-time progress analysis, and exportable reports."
+      }
+    ];
+  } else if (
+    lowerIdea.includes("finance") ||
+    lowerIdea.includes("pay") ||
+    lowerIdea.includes("bank") ||
+    lowerIdea.includes("invest") ||
+    lowerIdea.includes("money") ||
+    lowerIdea.includes("crypto") ||
+    lowerIdea.includes("tax")
+  ) {
+    category = "FinTech & Financial Intelligence";
+    tamEstimate = "$1.2 Trillion";
+    samEstimate = "$140 Billion";
+    somEstimate = "$4.2 Billion";
+    persona = "Retail Investors, Financial Advisors & Small Business Owners";
+    painPoints = [
+      "Complex, opaque financial jargon and hidden transaction fees",
+      "Time-consuming manual expense categorization and tax reconciliation",
+      "Lack of predictive risk analysis for personal wealth management"
+    ];
+    pricingModel = "Freemium ($19/mo Pro, $99/mo Advisor Suite, 0.1% AUM tier)";
+    estimatedCac = "$65 per user";
+    estimatedLtv = "$890 (24-month retention)";
+    paybackPeriod = "2.8 Months";
+    competitors = [
+      {
+        name: "Plaid / Robinhood",
+        strengths: "High brand trust, sleek mobile UX, and frictionless payment rails.",
+        weakness: "Mainly transactional platforms lacking intelligent portfolio advisory and automated audits.",
+        ourEdge: "AI-driven financial strategy, real-time risk simulation, and automated executive briefs."
+      }
+    ];
+  } else if (
+    lowerIdea.includes("code") ||
+    lowerIdea.includes("dev") ||
+    lowerIdea.includes("api") ||
+    lowerIdea.includes("cloud") ||
+    lowerIdea.includes("database") ||
+    lowerIdea.includes("deploy") ||
+    lowerIdea.includes("git")
+  ) {
+    category = "DevTools & Developer Infrastructure";
+    tamEstimate = "$210 Billion";
+    samEstimate = "$32 Billion";
+    somEstimate = "$950 Million";
+    persona = "Software Engineers, CTOs & DevOps Architects";
+    painPoints = [
+      "Context switching across fragmented developer tools and monitoring suites",
+      "Complex infrastructure deployment pipelines with unexpected cloud costs",
+      "Slow code reviews and debugging cycles in production environments"
+    ];
+    pricingModel = "Usage-based ($20/seat/mo + cloud compute usage)";
+    estimatedCac = "$42 per developer";
+    estimatedLtv = "$780 (22-month retention)";
+    paybackPeriod = "2.1 Months";
+    competitors = [
+      {
+        name: "GitHub / Vercel / Supabase",
+        strengths: "Massive developer adoption, ecosystem lock-in, and world-class CI/CD pipelines.",
+        weakness: "Complex pricing scaling and specialized developer knowledge requirements.",
+        ourEdge: "Zero-config deployment, real-time AI architectural audits, and instant prototype blueprints."
+      }
+    ];
+  } else if (
+    lowerIdea.includes("ai") ||
+    lowerIdea.includes("gpt") ||
+    lowerIdea.includes("llm") ||
+    lowerIdea.includes("automation") ||
+    lowerIdea.includes("model")
+  ) {
+    category = "Artificial Intelligence & Workflow Automation";
+    tamEstimate = "$450 Billion";
+    samEstimate = "$68 Billion";
+    somEstimate = "$2.4 Billion";
+    persona = "Knowledge Workers, Creators & Automation Engineers";
+    painPoints = [
+      "Generic AI outputs lacking domain-specific context and structured schemas",
+      "High API costs and rate limit bottlenecks with public models",
+      "Difficulty integrating AI models into existing production workflows"
+    ];
+    pricingModel = "SaaS Subscription ($29/mo Individual, $149/mo Team)";
+    estimatedCac = "$32 per user";
+    estimatedLtv = "$540 (16-month retention)";
+    paybackPeriod = "1.9 Months";
+    competitors = [
+      {
+        name: "OpenAI ChatGPT / Notion AI",
+        strengths: "Widespread consumer awareness and large foundational model access.",
+        weakness: "Unstructured text outputs, hallucination risks, and lack of vertical workflow artifacts.",
+        ourEdge: "Domain-specific structured blueprints, PDF report generation, and multi-modal intelligence."
+      }
+    ];
+  }
+
+  // Calculate Viability Score dynamically from idea characteristics
+  const ideaLen = idea.trim().length;
+  let baseScore = 74;
+  if (ideaLen > 80) baseScore += 6;
+  if (ideaLen > 200) baseScore += 5;
+  if (lowerIdea.includes("b2b") || lowerIdea.includes("enterprise") || lowerIdea.includes("api")) baseScore += 4;
+  const viabilityScore = Math.min(94, Math.max(58, baseScore));
+  const riskLevel = viabilityScore >= 80 ? "Low" : viabilityScore >= 65 ? "Medium" : "High";
 
   return {
     id: "mkt_" + Date.now(),
     ideaTitle: cleanTitle.toUpperCase(),
-    tagline: `Full Market Opportunity & Feasibility Analysis for "${cleanTitle}"`,
-    category: "Software & Technology SaaS",
+    tagline: `Data-Driven Feasibility & Market Opportunity Analysis for "${cleanTitle}"`,
+    category,
     date: dateStr,
-    viabilityScore: 84,
-    riskLevel: "Medium" as const,
-    tamEstimate: "$8.4 Billion",
-    samEstimate: "$1.2 Billion",
-    somEstimate: "$45 Million",
-    executiveSummary: `This comprehensive market analysis evaluates "${idea}". The underlying market dynamics present strong growth potential driven by digital transformation, scalable cloud unit economics, and viral user adoption loops. Immediate opportunity lies in capturing target users looking for streamlined workflow execution.`,
+    viabilityScore,
+    riskLevel: riskLevel as "Low" | "Medium" | "High",
+    tamEstimate,
+    samEstimate,
+    somEstimate,
+    executiveSummary: `This institutional-grade market analysis evaluates "${idea}". Operating within the rapidly expanding ${category} sector, the concept demonstrates high structural scalability, strong unit economics, and clear differentiation. By addressing core pain points with a modern technology architecture, the venture is strategically positioned to capture early market share.`,
     targetAudience: {
-      persona: "Product Builders, Early Founders, & Tech Leaders",
-      painPoints: [
-        "Excessive time spent on manual research and market planning",
-        "High cost of traditional consulting and legacy market research tools",
-        "Difficulty converting raw concepts into structured execution blueprints"
-      ],
-      willingnessToPay: "High ($29 - $199/month for pro workflow tiers)"
+      persona,
+      painPoints,
+      willingnessToPay: `High (${pricingModel})`
     },
-    competitors: [
-      {
-        name: "Legacy Research Tools",
-        strengths: "Established brand authority and large corporate historical datasets.",
-        weakness: "Prohibitive pricing ($10k+/yr), slow turnaround times, and lack of real-time AI synthesis.",
-        ourEdge: "Instant AI market synthesis, sub-3-second reports, and 90% lower cost structure."
-      },
-      {
-        name: "Generic AI Chatbots",
-        strengths: "High accessibility and broad natural language capabilities.",
-        weakness: "Unstructured text outputs, hallucinated statistics, and lack of downloadable PDF artifacts.",
-        ourEdge: "Structured 8-part market blueprints with downloadable PDF reports."
-      }
-    ],
+    competitors,
     swot: {
       strengths: [
-        "First-mover execution speed with automated PDF generation",
-        "High software gross margins (>85%) with scalable server infrastructure",
-        "Viral product loops through shareable interactive reports"
+        `Targeted value proposition tailored specifically for ${persona}`,
+        "Scalable cloud architecture with low incremental marginal costs (>85% gross margin)",
+        "Instant exportable PDF artifacts and interactive reports driving organic virality"
       ],
       weaknesses: [
-        "Initial dependence on organic founder referral channels",
-        "Need for ongoing domain schema expansion across non-tech verticals"
+        "Initial dependence on organic founder distribution and digital content channels",
+        "Requirement for ongoing domain schema expansion to maintain competitive moat"
       ],
       opportunities: [
-        "Integration with startup incubators, venture funds, and university innovation hubs",
-        "B2B Enterprise API licensing for automated portfolio screening"
+        `Strategic integration with established platforms in the ${category} space`,
+        "B2B Enterprise team licensing and white-label API distribution",
+        "International expansion into rapidly growing emerging digital markets"
       ],
       threats: [
-        "Rapid emergence of fast-follower AI wrappers in generic categories",
-        "Potential shifts in search engine customer acquisition costs"
+        "Emergence of generic low-cost AI wrappers attempting to copy feature sets",
+        "Shifts in customer acquisition costs across paid digital channels"
       ]
     },
     unitEconomics: {
-      pricingModel: "Freemium with $49/mo Pro and $199/mo Business Tiers",
-      estimatedCac: "$38 per acquiring customer",
-      estimatedLtv: "$580 (Average 12-month retention)",
-      paybackPeriod: "2.1 Months"
+      pricingModel,
+      estimatedCac,
+      estimatedLtv,
+      paybackPeriod
     },
     goToMarket: {
       primaryChannels: [
         "Product Hunt launch & founder community show-cases",
-        "LinkedIn & Twitter interactive report sharing loops",
-        "SEO content hubs targeting 'Market Analysis for Startup Ideas'"
+        "Targeted LinkedIn & Twitter interactive report sharing loops",
+        "SEO content hubs targeting industry-specific keywords"
       ],
       viralHook: "One-click 'Export Full Market PDF Report' with embedded branding and referral link.",
       milestones: [
-        { phase: "Month 1-2", goal: "Launch interactive MVP and onboard 500 active creators" },
-        { phase: "Month 3-5", goal: "Achieve $10k MRR with Pro tier subscription conversions" },
-        { phase: "Month 6-12", goal: "Scale to $50k MRR and establish 5 incubator accelerator partnerships" }
+        { phase: "Phase 1 (Months 1-2)", goal: "Launch interactive MVP and onboard initial 500 active creators" },
+        { phase: "Phase 2 (Months 3-5)", goal: "Achieve $10k MRR with Pro tier subscription conversions" },
+        { phase: "Phase 3 (Months 6-12)", goal: "Scale to $50k MRR and establish strategic industry distribution partnerships" }
       ]
     },
     keyRecommendations: [
-      "Focus product marketing heavily on the downloadable PDF feature as a core value hook.",
-      "Target early-stage startup accelerators and incubators for bulk API partnerships.",
-      "Implement one-click social sharing of key market statistics to fuel organic growth."
+      `Leverage the downloadable PDF report feature as a primary lead magnet for ${persona}.`,
+      "Focus initial marketing on one killer feature before expanding into multi-module workflows.",
+      "Establish early referral partnerships with industry influencers and community hubs."
     ]
   };
 }
@@ -920,7 +1108,7 @@ app.post("/api/generate-speech", async (req, res) => {
 
 // 7. General Mode-aware Chat Route
 app.post("/api/chat", async (req, res) => {
-  const { messages, activeMode, customInstructions } = req.body;
+  const { messages, activeMode, customInstructions, userProfile } = req.body;
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Messages array is required." });
   }
@@ -936,6 +1124,19 @@ app.post("/api/chat", async (req, res) => {
       modeGuidance = "You are in COMPANION/FRIEND MODE. Act as a friendly, supportive, and warm brainstorming buddy. Be encouraging, ask open-ended questions, and speak in an empathetic, conversational, everyday tone.";
     } else {
       modeGuidance = "You are in AUTOMATIC MODE. Adapt dynamically to the user's input tone. If they are asking for business/technical execution, answer in a structured Guider tone. If they are speaking casually, seeking support, or chatting, respond in a friendly Companion/Friend tone. Automatically shift behavior.";
+    }
+
+    let userProfileContext = "";
+    if (userProfile && (userProfile.name || userProfile.occupation || userProfile.age || userProfile.details)) {
+      userProfileContext = `
+      LEARNED USER PROFILE & PERSONA (LEARN & ADAPT TO THIS USER):
+      - Name: ${userProfile.name || "User"}
+      - What they do / Occupation: ${userProfile.occupation || "Not specified"}
+      - Age / Age Group: ${userProfile.age || "Not specified"}
+      - Background & Preferences: ${userProfile.details || "None provided"}
+
+      AI LEARNING DIRECTIVE: Learn from this user's profile and adapt your responses accordingly. Use domain-appropriate terminology, tone, and examples suitable for their age, occupation, and goals. Address them naturally by name when appropriate.
+      `;
     }
 
     const sysInstruction = `
@@ -968,9 +1169,20 @@ app.post("/api/chat", async (req, res) => {
 
       NOTE: Do not force simple, casual, or standard conversational chats into a rigid template. Keep simple chat responses natural, fluid, and direct. Use the structured breakdown when analyzing ideas, diagnosing issues, comparing choices, or planning technical implementations.
 
+      PERMANENT APP OWNER & CREATOR KNOWLEDGE (MALIK DETAILS):
+      - App Owner / Creator / Malik: Rohit
+      - Class: 11th Grade Student
+      - Age: 15 Years Old
+      - Role: Founder, Owner & Chief Architect of ASCEND STUDY / CORE AI
+      - CRITICAL MANDATE: You must ALWAYS remember Rohit as the owner/malik of this app. Whenever asked "Is app ka malik kaun hai?", "Who owns this app?", "Who created this app?", "Rohit kaun hai?", or any related question, always proudly, warmly, and clearly state that Rohit (15 years old, 11th Class student) is the creator and owner of this application!
+
       CUSTOM USER RULES / PREFERENCES:
       ${customInstructions || "No custom rules configured."}
 
+      ${userProfileContext}
+
+      CRITICAL COMPLETENESS MANDATE: You MUST write complete, fully finished responses. Never cut off mid-sentence, leave unclosed code blocks, or terminate prematurely. Ensure every sentence, paragraph, and thought reaches a natural, complete conclusion before ending your output.
+      
       Ensure you respond with maximum clarity, clean markdown formatting, accurate code blocks with syntax tags, and actionable guidance. Keep your answers clean, well-spaced, and easy to read.
     `;
 
@@ -1200,13 +1412,18 @@ app.post("/api/market-analysis", async (req, res) => {
     const ai = getGeminiClient();
     const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
     const prompt = `
-      SYSTEM ROLE: You are CORE AI's Senior Venture Analyst and Chief Market Research Strategist.
-      Analyze the following startup/business concept and generate a comprehensive, professional, institutional-grade FULL MARKET ANALYSIS REPORT.
+      SYSTEM ROLE: You are CORE AI's Lead Venture Capital Analyst and Chief Market Research Strategist.
+      Perform a deep, highly specific, quantitative and qualitative market analysis report for the following business concept:
 
-      BUSINESS IDEA: "${idea}"
+      BUSINESS CONCEPT: "${idea}"
       CURRENT DATE: "${dateStr}"
 
-      Ensure the output is rigorous, realistic, highly structured, and provides actionable data across TAM/SAM/SOM, Target Persona, Competitors, SWOT, Unit Economics, GTM Roadmap, and Recommendations.
+      CRITICAL ANALYZER MANDATES:
+      1. Detect the exact REAL industry sector/category (e.g. EdTech & Educational AI, FinTech & Payments, HealthTech & Digital Wellness, DevTools & Infrastructure, AI SaaS & Automation, E-Commerce & Retail, B2B Enterprise, etc.).
+      2. Identify ACTUAL, REAL competitor companies or products in this exact industry domain (e.g. Duolingo/Coursera for EdTech; Stripe/Plaid for FinTech; Strava/MyFitnessPal for Health; GitHub/Vercel for DevTools; ChatGPT/Notion for AI; etc.). Do NOT use generic placeholder names like "Legacy Research Tools".
+      3. Compute realistic TAM, SAM, and SOM dollar estimates in USD derived from real industry benchmarks for this specific sector.
+      4. Calculate a realistic, non-arbitrary Viability Score (0-100) and Risk Level (Low, Medium, or High) by evaluating market saturation, customer acquisition complexity, and technological differentiation for THIS specific idea.
+      5. Detail domain-tailored Target Audience Personas, Pain Points, SWOT Analysis, Unit Economics (CAC, LTV, Pricing), and a step-by-step Go-To-Market roadmap.
     `;
 
     const response = await callGeminiWithCascade((model) =>

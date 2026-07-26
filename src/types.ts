@@ -104,6 +104,21 @@ export interface CustomInstructions {
   codePreference: string;
 }
 
+export interface OwnerProfile {
+  name: string;
+  className: string;
+  age: string;
+  appTitle: string;
+}
+
+export interface UserProfile {
+  name: string;
+  occupation: string;
+  age: string;
+  details: string;
+  isSetupCompleted?: boolean;
+}
+
 export type AppLanguage = "en" | "hi" | "hinglish" | "es" | "fr" | "de" | "ja";
 
 export interface LanguageOption {

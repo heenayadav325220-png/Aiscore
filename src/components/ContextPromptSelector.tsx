@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { UIMode } from "../types";
 
-export type ContextViewType = "writer" | "evaluator" | "visuals" | "chat";
+export type ContextViewType = "evaluator" | "visuals" | "chat";
 
 export interface ContextPromptOption {
   id: string;
@@ -35,57 +35,14 @@ export interface ContextPromptGroup {
 }
 
 interface ContextPromptSelectorProps {
-  activeView: "chat" | "evaluator" | "visuals" | "writer";
+  activeView: "chat" | "evaluator" | "visuals";
   activeMode?: UIMode;
   onSelectPrompt: (instruction: string) => void;
   accentColor?: string;
-  onSwitchView?: (view: "chat" | "evaluator" | "visuals" | "writer") => void;
+  onSwitchView?: (view: "chat" | "evaluator" | "visuals") => void;
 }
 
 const CORE_CONTEXT_GROUPS: ContextPromptGroup[] = [
-  {
-    viewId: "writer",
-    title: "Writer Assistant",
-    icon: <PenTool className="w-3.5 h-3.5" />,
-    accentColor: "#3b82f6",
-    prompts: [
-      {
-        id: "w_tone",
-        label: "Improve Tone",
-        instruction: "Rewrite and polish the following text to have a professional, engaging, and clear tone:\n\n",
-        description: "Enhance readability and professional engagement",
-        icon: "✨",
-      },
-      {
-        id: "w_sum",
-        label: "Summarize",
-        instruction: "Provide a concise, structured executive summary with key takeaways for the following content:\n\n",
-        description: "Extract essential bullet points and takeaways",
-        icon: "📝",
-      },
-      {
-        id: "w_expand",
-        label: "Expand Content",
-        instruction: "Elaborate in detail with deeper explanations, supporting evidence, and concrete examples for:\n\n",
-        description: "Add depth, context, and detailed examples",
-        icon: "🔍",
-      },
-      {
-        id: "w_grammar",
-        label: "Fix Grammar",
-        instruction: "Proofread and correct all grammatical, syntax, and punctuation errors in the following text:\n\n",
-        description: "Fix typos, awkward phrasing, and grammar",
-        icon: "✅",
-      },
-      {
-        id: "w_markdown",
-        label: "Format Markdown",
-        instruction: "Structure and format the following text into clean Markdown with clear headings and bullet points:\n\n",
-        description: "Organize into clean headers and Markdown blocks",
-        icon: "📊",
-      },
-    ],
-  },
   {
     viewId: "evaluator",
     title: "Idea Evaluator",
@@ -188,7 +145,6 @@ export const ContextPromptSelector: React.FC<ContextPromptSelectorProps> = ({
   onSwitchView,
 }) => {
   const getMatchingGroup = (view: string): ContextViewType => {
-    if (view === "writer") return "writer";
     if (view === "evaluator") return "evaluator";
     if (view === "visuals") return "visuals";
     return "chat";

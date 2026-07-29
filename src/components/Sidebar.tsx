@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -27,11 +27,28 @@ import {
   GraduationCap,
   UserCheck,
   AlertCircle,
-  ChevronDown
+  ChevronDown,
+  Upload,
+  Camera,
+  Image as ImageIcon,
+  BookOpen,
+  Copy,
+  Bookmark,
+  ArrowRight,
+  Palette,
+  Layout,
+  Type,
+  Layers,
+  Grid,
+  ShieldCheck,
+  RotateCcw,
+  Eye,
+  EyeOff
 } from "lucide-react";
-import { UIMode, IdeaEvaluation, CustomInstructions, ThemeSettings, ChatSession, AppLanguage, OwnerProfile, UserProfile } from "../types";
+import { UIMode, IdeaEvaluation, CustomInstructions, ThemeSettings, ChatSession, AppLanguage, OwnerProfile, UserProfile, PromptTemplate } from "../types";
 import { LANGUAGE_OPTIONS } from "../lib/translations";
 import { CoreAiLogo } from "./CoreAiLogo";
+import { UserAvatar, PRESET_AVATARS } from "./UserAvatar";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -60,10 +77,15 @@ interface SidebarProps {
   onSaveOwnerProfile?: (profile: OwnerProfile) => void;
   userProfile?: UserProfile;
   onSaveUserProfile?: (profile: UserProfile) => void;
+  promptTemplates?: PromptTemplate[];
+  onAddPromptTemplate?: (template: Omit<PromptTemplate, "id" | "createdAt">) => void;
+  onDeletePromptTemplate?: (id: string) => void;
+  onSelectPromptTemplate?: (content: string) => void;
 }
 
 
-type SidebarSubTab = "menu" | "owner" | "profile" | "ideas" | "instructions" | "modes" | "themes" | "chats";
+type SidebarSubTab = "menu" | "owner" | "profile" | "ideas" | "instructions" | "modes" | "themes" | "chats" | "library";
+
 
 export default function Sidebar({
   isOpen,
@@ -90,14 +112,48 @@ export default function Sidebar({
   ownerProfile = { name: "Rohit", className: "11th", age: "15", appTitle: "ASCEND STUDY / CORE AI" },
   onSaveOwnerProfile,
   userProfile = { name: "", occupation: "", age: "", details: "" },
-  onSaveUserProfile
+  onSaveUserProfile,
+  promptTemplates = [],
+  onAddPromptTemplate,
+  onDeletePromptTemplate,
+  onSelectPromptTemplate,
 }: SidebarProps) {
   const [activeSubTab, setActiveSubTab] = useState<SidebarSubTab>("menu");
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
 
+  // Library State
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [isCreatingPrompt, setIsCreatingPrompt] = useState(false);
+  const [newPromptTitle, setNewPromptTitle] = useState("");
+  const [newPromptCategory, setNewPromptCategory] = useState("Custom");
+  const [newPromptContent, setNewPromptContent] = useState("");
+  const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
+  const [importedToast, setImportedToast] = useState<string | null>(null);
+
   const [ownerForm, setOwnerForm] = useState<OwnerProfile>(ownerProfile);
+
   const [userForm, setUserForm] = useState<UserProfile>(userProfile);
   const [sidebarAgeError, setSidebarAgeError] = useState<string | null>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+
+  const handleSidebarAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const result = evt.target?.result as string;
+        if (result) {
+          setUserForm((prev) => ({ ...prev, avatar: result }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     setOwnerForm(ownerProfile);
@@ -341,6 +397,29 @@ export default function Sidebar({
                     <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-300 transition-colors" />
                   </button>
 
+                  {/* Prompt Library & Templates */}
+                  <button
+                    onClick={() => setActiveSubTab("library")}
+                    className="w-full text-left p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-all flex items-center justify-between group cursor-pointer border border-cyan-500/20 bg-cyan-500/5 dark:bg-cyan-500/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-cyan-500/20 dark:bg-cyan-500/30 rounded-lg text-cyan-500 dark:text-cyan-300 group-hover:text-[#00e5ff] transition-colors">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">Prompt Library</h4>
+                          <span className="text-[8px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
+                            Templates
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-400 mt-0.5">Custom prompt templates ({promptTemplates.length})</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-cyan-400 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+
+
                   {/* Language Selector Block */}
                   {onChangeLanguage && (
                     <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2 mt-2">
@@ -570,6 +649,68 @@ export default function Sidebar({
                       <span className="text-[9px] font-mono text-cyan-300/80 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800/50">AI TRAINED</span>
                     </div>
 
+                    {/* Avatar Selection & Personal Photo Upload */}
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2.5">
+                      <label className="text-[10px] font-mono text-slate-400 block font-bold uppercase tracking-wider">
+                        Profile Avatar & Personal Photo
+                      </label>
+                      
+                      <div className="flex items-center gap-3">
+                        <UserAvatar avatar={userForm.avatar} name={userForm.name || "User"} size="lg" />
+                        <div className="flex flex-col gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => avatarFileRef.current?.click()}
+                            className="px-3 py-1.5 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>Upload Photo</span>
+                          </button>
+                          <input
+                            ref={avatarFileRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleSidebarAvatarUpload}
+                            className="hidden"
+                          />
+                          {userForm.avatar && (
+                            <button
+                              type="button"
+                              onClick={() => setUserForm({ ...userForm, avatar: "" })}
+                              className="text-[10px] text-rose-400 hover:underline cursor-pointer text-left"
+                            >
+                              Remove Avatar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Preset Avatar Emoji Badges Grid */}
+                      <div className="pt-1">
+                        <span className="text-[9px] font-mono text-slate-500 block mb-1">Or Choose Preset Avatar:</span>
+                        <div className="grid grid-cols-6 gap-1.5">
+                          {PRESET_AVATARS.map((preset) => {
+                            const isSelected = userForm.avatar === preset.id;
+                            return (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => setUserForm({ ...userForm, avatar: preset.id })}
+                                className={`p-1.5 rounded-lg border text-sm flex items-center justify-center transition-all cursor-pointer ${
+                                  isSelected
+                                    ? "bg-cyan-500/30 border-cyan-400 ring-1 ring-cyan-400 scale-110"
+                                    : "bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800"
+                                }`}
+                                title={preset.name}
+                              >
+                                {preset.emoji}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-2.5 pt-1">
                       <div>
                         <label className="text-[10px] font-mono text-slate-400 block mb-1">Your Name</label>
@@ -783,100 +924,92 @@ export default function Sidebar({
                 </div>
               )}
 
-              {/* Themes Tab */}
+              {/* Themes & UI Layout Redesign Tab */}
               {activeSubTab === "themes" && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                    <button onClick={() => setActiveSubTab("menu")} className="text-xs text-[#00e5ff] font-bold cursor-pointer">← Back</button>
-                    <h3 className="text-sm font-bold font-display text-slate-800">Customise Theme</h3>
+                <div className="space-y-4 pb-6">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setActiveSubTab("menu")} className="text-xs text-[#00e5ff] font-bold cursor-pointer">← Back</button>
+                      <h3 className="text-sm font-bold font-display text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <Palette className="w-4 h-4 text-[#00e5ff]" />
+                        <span>Theme & UI Redesign</span>
+                      </h3>
+                    </div>
                   </div>
-                  <form onSubmit={handleSaveTheme} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Neon Glow Power</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {["soft", "vibrant", "extreme"].map((lvl) => (
-                          <button
-                            key={lvl}
-                            type="button"
-                            onClick={() => {
-                              const updated = { ...themeForm, neonGlowStrength: lvl as any };
-                              setThemeForm(updated);
-                              onSaveTheme(updated);
-                            }}
-                            className={`p-2 rounded-lg border text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                              themeForm.neonGlowStrength === lvl
-                                ? "bg-slate-50 border-cyan-400 text-slate-900 shadow-sm"
-                                : "bg-white border-slate-100 text-slate-400 hover:border-slate-300"
-                            }`}
-                          >
-                            {lvl}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
 
-                    {/* Predefined Accent Color Palette */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                        Quick Preset Palette
-                      </label>
-                      <div className="grid grid-cols-4 gap-2">
-                        {[
-                          { name: "Cyan", value: "#00e5ff" },
-                          { name: "Pink", value: "#ff007f" },
-                          { name: "Green", value: "#39ff14" },
-                          { name: "Purple", value: "#bd00ff" },
-                          { name: "Amber", value: "#ff5e00" },
-                          { name: "Gold", value: "#ffd700" },
-                          { name: "Rose", value: "#ff1493" },
-                          { name: "Mint", value: "#00ff87" },
-                        ].map((color) => {
-                          const isSelected = themeForm.accentColor.toLowerCase() === color.value.toLowerCase();
-                          return (
-                            <button
-                              key={color.value}
-                              type="button"
-                              onClick={() => {
-                                const updated = { ...themeForm, accentColor: color.value };
-                                setThemeForm(updated);
-                                onSaveTheme(updated);
-                              }}
-                              className={`h-9 rounded-xl border flex items-center justify-center relative cursor-pointer hover:scale-105 transition-transform ${
-                                isSelected ? "border-slate-800 ring-2 ring-slate-100 scale-105" : "border-slate-150"
-                              }`}
-                              style={{ backgroundColor: color.value }}
-                              title={color.name}
-                            >
-                              {isSelected && (
-                                <span className="p-0.5 bg-black/35 rounded-full backdrop-blur-xs flex items-center justify-center">
-                                  <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
+                  {/* Non-destructive Protection Notice */}
+                  <div className="p-3 bg-cyan-500/10 dark:bg-cyan-950/50 border border-cyan-500/30 rounded-xl flex items-start gap-2.5 text-xs">
+                    <ShieldCheck className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 text-[11px] leading-tight text-slate-700 dark:text-slate-200">
+                      <strong className="font-bold block text-cyan-600 dark:text-cyan-300">Protected Core System</strong>
+                      <span>Redesigning UI layout changes visual style, fonts & bubbles. Chat history & data are safely preserved and cannot be deleted.</span>
                     </div>
+                  </div>
 
-                    {/* Fine-Tuning controls */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                        Fine-Tune Accent
-                      </label>
+                  <form onSubmit={handleSaveTheme} className="space-y-5">
+                    {/* Section 1: Color Accents & Neon Glow */}
+                    <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase font-mono tracking-wider text-slate-700 dark:text-slate-300">
+                        <Sparkles className="w-3.5 h-3.5 text-[#00e5ff]" />
+                        <span>Accent Color & Neon Power</span>
+                      </div>
+
+                      {/* Quick Palette */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Preset Color Palette</label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { name: "Cyan", value: "#00e5ff" },
+                            { name: "Pink", value: "#ff007f" },
+                            { name: "Green", value: "#39ff14" },
+                            { name: "Purple", value: "#bd00ff" },
+                            { name: "Amber", value: "#ff5e00" },
+                            { name: "Gold", value: "#ffd700" },
+                            { name: "Rose", value: "#ff1493" },
+                            { name: "Mint", value: "#00ff87" },
+                          ].map((color) => {
+                            const isSelected = (themeForm.accentColor || "#00e5ff").toLowerCase() === color.value.toLowerCase();
+                            return (
+                              <button
+                                key={color.value}
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...themeForm, accentColor: color.value };
+                                  setThemeForm(updated);
+                                  onSaveTheme(updated);
+                                }}
+                                className={`h-8 rounded-xl border flex items-center justify-center relative cursor-pointer hover:scale-105 transition-transform ${
+                                  isSelected ? "border-slate-800 ring-2 ring-slate-100 dark:ring-slate-700 scale-105" : "border-slate-200 dark:border-slate-700"
+                                }`}
+                                style={{ backgroundColor: color.value }}
+                                title={color.name}
+                              >
+                                {isSelected && (
+                                  <span className="p-0.5 bg-black/40 rounded-full backdrop-blur-xs flex items-center justify-center">
+                                    <Check className="w-3 h-3 text-white stroke-[3px]" />
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Fine Tune Hex */}
                       <div className="flex items-center gap-2">
                         <input
                           type="color"
-                          value={themeForm.accentColor}
+                          value={themeForm.accentColor || "#00e5ff"}
                           onChange={(e) => {
                             const updated = { ...themeForm, accentColor: e.target.value };
                             setThemeForm(updated);
                             onSaveTheme(updated);
                           }}
-                          className="w-12 h-9 p-0.5 rounded-lg border border-slate-200 bg-white cursor-pointer shrink-0"
+                          className="w-10 h-8 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 cursor-pointer shrink-0"
                         />
                         <input
                           type="text"
-                          value={themeForm.accentColor.toUpperCase()}
+                          value={(themeForm.accentColor || "#00e5ff").toUpperCase()}
                           onChange={(e) => {
                             const updated = { ...themeForm, accentColor: e.target.value };
                             setThemeForm(updated);
@@ -884,19 +1017,324 @@ export default function Sidebar({
                               onSaveTheme(updated);
                             }
                           }}
-                          className="flex-1 p-2 border border-slate-150 rounded-lg text-xs font-mono text-slate-700 bg-white focus:outline-none focus:border-cyan-400 uppercase"
-                          placeholder="#00E5FF"
+                          className="flex-1 p-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 focus:outline-none focus:border-cyan-400 uppercase"
                           maxLength={7}
                         />
                       </div>
+
+                      {/* Neon Glow Power */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Glow Strength</label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {["soft", "vibrant", "extreme"].map((lvl) => (
+                            <button
+                              key={lvl}
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...themeForm, neonGlowStrength: lvl as any };
+                                setThemeForm(updated);
+                                onSaveTheme(updated);
+                              }}
+                              className={`py-1.5 px-2 rounded-lg border text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                                themeForm.neonGlowStrength === lvl
+                                  ? "bg-cyan-500/20 border-cyan-400 text-cyan-600 dark:text-cyan-300 shadow-xs"
+                                  : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300"
+                              }`}
+                            >
+                              {lvl}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
-                    <button
-                      type="submit"
-                      className="w-full py-2.5 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
-                    >
-                      Apply Colors & Glows
-                    </button>
+                    {/* Section 2: Chat Screen UI & Bubble Redesign */}
+                    <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase font-mono tracking-wider text-slate-700 dark:text-slate-300">
+                        <Layout className="w-3.5 h-3.5 text-[#00e5ff]" />
+                        <span>Chat Screen UI Style</span>
+                      </div>
+
+                      {/* Chat Bubble Style */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Message Bubble Design</label>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {[
+                            { id: "glass", label: "Glassmorphism", desc: "Translucent glass with glow blur" },
+                            { id: "minimal", label: "Flat Minimal", desc: "Clean borderless solid cards" },
+                            { id: "rounded_pill", label: "Rounded Pill", desc: "Curved soft pill bubbles" },
+                            { id: "retro_card", label: "Retro Bold Card", desc: "High-contrast thick border" },
+                            { id: "cyber_border", label: "Cyber Frame", desc: "Futuristic cyan line frame" },
+                          ].map((b) => {
+                            const isSelected = (themeForm.chatBubbleStyle || "glass") === b.id;
+                            return (
+                              <button
+                                key={b.id}
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...themeForm, chatBubbleStyle: b.id as any };
+                                  setThemeForm(updated);
+                                  onSaveTheme(updated);
+                                }}
+                                className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                                  isSelected
+                                    ? "bg-cyan-500/15 border-cyan-400 text-slate-900 dark:text-slate-100 font-bold"
+                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                                }`}
+                              >
+                                <div>
+                                  <span className="block text-xs font-bold">{b.label}</span>
+                                  <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-medium">{b.desc}</span>
+                                </div>
+                                {isSelected && <Check className="w-4 h-4 text-cyan-500 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Typography / Font Family */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono flex items-center gap-1">
+                          <Type className="w-3 h-3 text-cyan-500" />
+                          <span>App Typography / Font</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            { id: "modern_sans", label: "Modern Sans" },
+                            { id: "tech_mono", label: "Tech Mono" },
+                            { id: "serif_editorial", label: "Editorial Serif" },
+                            { id: "space_grotesk", label: "Space Grotesk" },
+                          ].map((f) => {
+                            const isSelected = (themeForm.fontFamily || "modern_sans") === f.id;
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...themeForm, fontFamily: f.id as any };
+                                  setThemeForm(updated);
+                                  onSaveTheme(updated);
+                                }}
+                                className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                                  isSelected
+                                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-600 dark:text-cyan-300"
+                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                                }`}
+                              >
+                                {f.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Layout Density */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">UI Density & Spacing</label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { id: "compact", label: "Compact" },
+                            { id: "comfortable", label: "Comfortable" },
+                            { id: "spacious", label: "Spacious" },
+                          ].map((d) => {
+                            const isSelected = (themeForm.uiDensity || "comfortable") === d.id;
+                            return (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...themeForm, uiDensity: d.id as any };
+                                  setThemeForm(updated);
+                                  onSaveTheme(updated);
+                                }}
+                                className={`py-1.5 px-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer text-center ${
+                                  isSelected
+                                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-600 dark:text-cyan-300"
+                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300"
+                                }`}
+                              >
+                                {d.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Chat Background Canvas */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono flex items-center gap-1">
+                          <Grid className="w-3 h-3 text-cyan-500" />
+                          <span>Chat Canvas Texture</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            { id: "clean_dark", label: "Clean Dark" },
+                            { id: "cyber_grid", label: "Tactical Grid" },
+                            { id: "ambient_dots", label: "Ambient Dots" },
+                            { id: "radial_glow", label: "Radial Halo" },
+                          ].map((bg) => {
+                            const isSelected = (themeForm.chatBackgroundTexture || "clean_dark") === bg.id;
+                            return (
+                              <button
+                                key={bg.id}
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...themeForm, chatBackgroundTexture: bg.id as any };
+                                  setThemeForm(updated);
+                                  onSaveTheme(updated);
+                                }}
+                                className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                                  isSelected
+                                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-600 dark:text-cyan-300"
+                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                                }`}
+                              >
+                                {bg.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Corner Radius */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Corner Radius Curves</label>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[
+                            { id: "sharp", label: "Sharp" },
+                            { id: "rounded", label: "Rounded" },
+                            { id: "soft", label: "Soft" },
+                            { id: "pill", label: "Pill" },
+                          ].map((c) => {
+                            const isSelected = (themeForm.cornerRadius || "rounded") === c.id;
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...themeForm, cornerRadius: c.id as any };
+                                  setThemeForm(updated);
+                                  onSaveTheme(updated);
+                                }}
+                                className={`py-1.5 px-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer text-center ${
+                                  isSelected
+                                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-600 dark:text-cyan-300"
+                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300"
+                                }`}
+                              >
+                                {c.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section 3: Visual Elements Visibility Toggles */}
+                    <div className="space-y-2.5 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase font-mono tracking-wider text-slate-700 dark:text-slate-300">
+                        <Eye className="w-3.5 h-3.5 text-[#00e5ff]" />
+                        <span>Visual Elements Toggles</span>
+                      </div>
+
+                      {/* Toggle Avatars */}
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Show Profile Avatars</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...themeForm, showAvatars: themeForm.showAvatars === false ? true : false };
+                            setThemeForm(updated);
+                            onSaveTheme(updated);
+                          }}
+                          className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
+                            themeForm.showAvatars !== false ? "bg-cyan-500" : "bg-slate-300 dark:bg-slate-700"
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                            themeForm.showAvatars !== false ? "translate-x-5" : "translate-x-0"
+                          }`} />
+                        </button>
+                      </div>
+
+                      {/* Toggle Timestamps */}
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Show Message Timestamps</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...themeForm, showTimestamps: themeForm.showTimestamps === false ? true : false };
+                            setThemeForm(updated);
+                            onSaveTheme(updated);
+                          }}
+                          className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
+                            themeForm.showTimestamps !== false ? "bg-cyan-500" : "bg-slate-300 dark:bg-slate-700"
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                            themeForm.showTimestamps !== false ? "translate-x-5" : "translate-x-0"
+                          }`} />
+                        </button>
+                      </div>
+
+                      {/* Toggle Glass Blur FX */}
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Glass Backdrop Blur FX</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...themeForm, glassBlurFx: themeForm.glassBlurFx === false ? true : false };
+                            setThemeForm(updated);
+                            onSaveTheme(updated);
+                          }}
+                          className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
+                            themeForm.glassBlurFx !== false ? "bg-cyan-500" : "bg-slate-300 dark:bg-slate-700"
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                            themeForm.glassBlurFx !== false ? "translate-x-5" : "translate-x-0"
+                          }`} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Submit & Reset Buttons */}
+                    <div className="space-y-2 pt-1">
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 bg-slate-900 dark:bg-cyan-500 text-white dark:text-slate-950 font-extrabold text-xs rounded-xl hover:opacity-90 transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>Save UI Redesign Settings</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const resetTheme = {
+                            neonGlowStrength: "vibrant" as const,
+                            baseContrast: "normal" as const,
+                            accentColor: "#00e5ff",
+                            chatBubbleStyle: "glass" as const,
+                            fontFamily: "modern_sans" as const,
+                            uiDensity: "comfortable" as const,
+                            chatBackgroundTexture: "clean_dark" as const,
+                            cornerRadius: "rounded" as const,
+                            chatHeaderStyle: "full" as const,
+                            showAvatars: true,
+                            showTimestamps: true,
+                            glassBlurFx: true,
+                          };
+                          setThemeForm(resetTheme);
+                          onSaveTheme(resetTheme);
+                        }}
+                        className="w-full py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset UI Layout to Default</span>
+                      </button>
+                    </div>
                   </form>
                 </div>
               )}
@@ -1227,6 +1665,262 @@ export default function Sidebar({
                   </div>
                 </div>
               )}
+
+              {activeSubTab === "library" && (
+                <div className="space-y-4">
+                  {/* Header & Back */}
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setActiveSubTab("menu")} className="text-xs text-[#00e5ff] font-bold cursor-pointer hover:underline">← Back</button>
+                      <h3 className="text-sm font-bold font-display text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <BookOpen className="w-4 h-4 text-cyan-400" />
+                        Prompt Library & Templates
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingPrompt(!isCreatingPrompt)}
+                      className="px-2.5 py-1 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl hover:bg-cyan-400 transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{isCreatingPrompt ? "Cancel" : "New Prompt"}</span>
+                    </button>
+                  </div>
+
+                  {/* Toast Notification when imported or copied */}
+                  {importedToast && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="p-2.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>{importedToast}</span>
+                    </motion.div>
+                  )}
+
+                  {/* Form to Create New Prompt Template */}
+                  {isCreatingPrompt && (
+                    <motion.form
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!newPromptTitle.trim() || !newPromptContent.trim()) {
+                          alert("Please fill in both title and prompt content.");
+                          return;
+                        }
+                        if (onAddPromptTemplate) {
+                          onAddPromptTemplate({
+                            title: newPromptTitle.trim(),
+                            category: newPromptCategory,
+                            content: newPromptContent.trim(),
+                          });
+                        }
+                        setNewPromptTitle("");
+                        setNewPromptContent("");
+                        setIsCreatingPrompt(false);
+                        setImportedToast("New prompt template saved to library!");
+                        setTimeout(() => setImportedToast(null), 3000);
+                      }}
+                      className="p-3.5 bg-slate-950 rounded-2xl border border-cyan-500/40 space-y-3"
+                    >
+                      <div className="flex items-center justify-between text-xs font-bold text-cyan-400 font-mono">
+                        <span>CREATE CUSTOM PROMPT TEMPLATE</span>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-mono text-slate-400 block mb-1">Title</label>
+                        <input
+                          type="text"
+                          value={newPromptTitle}
+                          onChange={(e) => setNewPromptTitle(e.target.value)}
+                          placeholder="e.g. Risk Assessment Checklist"
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-mono text-slate-400 block mb-1">Category</label>
+                        <select
+                          value={newPromptCategory}
+                          onChange={(e) => setNewPromptCategory(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
+                        >
+                          <option value="Decision Mirror">Decision Mirror</option>
+                          <option value="Coding">Coding</option>
+                          <option value="Study">Study</option>
+                          <option value="Strategy">Strategy</option>
+                          <option value="Custom">Custom</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-mono text-slate-400 block mb-1">Prompt Content / Template</label>
+                        <textarea
+                          rows={3}
+                          value={newPromptContent}
+                          onChange={(e) => setNewPromptContent(e.target.value)}
+                          placeholder="Type your structured prompt template here..."
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-cyan-400 resize-none font-mono"
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingPrompt(false)}
+                          className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-1.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl hover:bg-cyan-400 transition-all cursor-pointer"
+                        >
+                          Save Template
+                        </button>
+                      </div>
+                    </motion.form>
+                  )}
+
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={librarySearch}
+                      onChange={(e) => setLibrarySearch(e.target.value)}
+                      placeholder="Search templates..."
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+
+                  {/* Category Pills Filter */}
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar text-[10px]">
+                    {["All", "Decision Mirror", "Coding", "Study", "Strategy", "Custom"].map((cat) => {
+                      const isActive = selectedCategory === cat;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setSelectedCategory(cat)}
+                          className={`px-2.5 py-1 rounded-lg font-bold border transition-all cursor-pointer shrink-0 ${
+                            isActive
+                              ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-xs"
+                              : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/60 hover:border-cyan-400/50"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Prompt Templates Cards List */}
+                  <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+                    {promptTemplates
+                      .filter((tpl) => {
+                        const matchesCategory = selectedCategory === "All" || tpl.category === selectedCategory;
+                        const matchesSearch =
+                          !librarySearch ||
+                          tpl.title.toLowerCase().includes(librarySearch.toLowerCase()) ||
+                          tpl.content.toLowerCase().includes(librarySearch.toLowerCase());
+                        return matchesCategory && matchesSearch;
+                      })
+                      .map((tpl) => {
+                        return (
+                          <div
+                            key={tpl.id}
+                            className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl hover:border-cyan-500/40 transition-all space-y-2 group"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
+                                    {tpl.category}
+                                  </span>
+                                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                                    {tpl.title}
+                                  </h4>
+                                </div>
+                              </div>
+                              {onDeletePromptTemplate && tpl.id.startsWith("tpl_custom_") && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeletePromptTemplate(tpl.id)}
+                                  className="text-slate-400 hover:text-rose-500 transition-colors p-1 cursor-pointer"
+                                  title="Delete template"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            <p className="text-[11px] font-mono text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900/90 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800 line-clamp-3 whitespace-pre-wrap leading-relaxed">
+                              {tpl.content}
+                            </p>
+
+                            <div className="flex items-center justify-between pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(tpl.content);
+                                  setCopiedPromptId(tpl.id);
+                                  setTimeout(() => setCopiedPromptId(null), 2000);
+                                }}
+                                className="text-[10px] font-mono text-slate-400 hover:text-cyan-400 cursor-pointer flex items-center gap-1"
+                              >
+                                {copiedPromptId === tpl.id ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                    <span className="text-emerald-400 font-bold">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy Text</span>
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onSelectPromptTemplate) {
+                                    onSelectPromptTemplate(tpl.content);
+                                    setImportedToast(`Imported "${tpl.title}" to chat!`);
+                                    setTimeout(() => setImportedToast(null), 2500);
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-[11px] rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-cyan-500/20 active:scale-95"
+                              >
+                                <span>Import to Chat</span>
+                                <ArrowRight className="w-3.5 h-3.5 text-slate-950" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                    {promptTemplates.filter((tpl) => {
+                      const matchesCategory = selectedCategory === "All" || tpl.category === selectedCategory;
+                      const matchesSearch =
+                        !librarySearch ||
+                        tpl.title.toLowerCase().includes(librarySearch.toLowerCase()) ||
+                        tpl.content.toLowerCase().includes(librarySearch.toLowerCase());
+                      return matchesCategory && matchesSearch;
+                    }).length === 0 && (
+                      <div className="p-6 text-center text-xs text-slate-400 font-mono">
+                        No templates found matching your criteria.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* Footer option */}

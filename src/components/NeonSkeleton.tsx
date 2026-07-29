@@ -235,25 +235,3 @@ export function ImageGeneratorSkeleton() {
     </div>
   );
 }
-
-export function WritingAssistantSkeleton() {
-  return (
-    <div className="w-full max-w-3xl mx-auto space-y-4 p-4 animate-pulse">
-      <div className="rounded-2xl bg-white dark:bg-slate-900 border-2 border-cyan-500/40 p-6 space-y-4 shadow-[0_0_20px_rgba(0,229,255,0.15)]">
-        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <FileText className="w-5 h-5 text-[#00e5ff]" />
-          <span className="text-xs font-mono font-bold text-[#00e5ff] uppercase tracking-wider">
-            DRAFTING DOCUMENT CANVAS...
-          </span>
-        </div>
-        <div className="space-y-3 pt-2">
-          <div className="h-5 w-1/2 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-          <div className="h-3.5 w-full bg-slate-100 dark:bg-slate-800/80 rounded" />
-          <div className="h-3.5 w-11/12 bg-slate-100 dark:bg-slate-800/80 rounded" />
-          <div className="h-3.5 w-4/5 bg-slate-100 dark:bg-slate-800/80 rounded" />
-          <div className="h-3.5 w-full bg-slate-100 dark:bg-slate-800/80 rounded" />
-        </div>
-      </div>
-    </div>
-  );
-}

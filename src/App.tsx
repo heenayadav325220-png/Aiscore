@@ -52,11 +52,16 @@ import {
   AlertCircle,
   ArrowLeft,
   Download,
-  Loader2
+  Loader2,
+  Camera,
+  Upload,
+  BookOpen
 } from "lucide-react";
 import Markdown from "react-markdown";
-import { AppLanguage, OwnerProfile, UserProfile } from "./types";
+import { AppLanguage, OwnerProfile, UserProfile, PromptTemplate, DEFAULT_PROMPT_TEMPLATES, ThemeSettings, DEFAULT_THEME_SETTINGS } from "./types";
+
 import { LANGUAGE_OPTIONS, TRANSLATIONS, getLanguageInstruction } from "./lib/translations";
+import { UserAvatar, PRESET_AVATARS } from "./components/UserAvatar";
 
 
 import { exportChatToPdf } from "./lib/exportUtils";
@@ -80,7 +85,6 @@ import {
   PrototypeGuidance,
   UIMode,
   CustomInstructions,
-  ThemeSettings,
   ChatSession,
   MarketAnalysisReport
 } from "./types";
@@ -88,7 +92,6 @@ import {
 import Sidebar from "./components/Sidebar";
 import IdeaEvaluator from "./components/IdeaEvaluator";
 import PrototypeEngine from "./components/PrototypeEngine";
-import WritingAssistant from "./components/WritingAssistant";
 import ImageGenerator from "./components/ImageGenerator";
 import ContextPromptSelector from "./components/ContextPromptSelector";
 import { ChatMessage as ChatMessageComponent } from "./components/ChatMessage";
@@ -100,7 +103,6 @@ import {
   ScorecardSkeleton,
   BlueprintSkeleton,
   ImageGeneratorSkeleton,
-  WritingAssistantSkeleton,
 } from "./components/NeonSkeleton";
 
 function formatApiErrorMessage(err: any): string {
@@ -313,15 +315,36 @@ function UserProfileModal({ isOpen, onClose, profile, onSave }: UserProfileModal
   const [occupation, setOccupation] = useState(profile.occupation || "");
   const [age, setAge] = useState(profile.age || "");
   const [details, setDetails] = useState(profile.details || "");
+  const [avatar, setAvatar] = useState(profile.avatar || "");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setName(profile.name || "");
     setOccupation(profile.occupation || "");
     setAge(profile.age || "");
     setDetails(profile.details || "");
+    setAvatar(profile.avatar || "");
   }, [profile, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const result = evt.target?.result as string;
+        if (result) {
+          setAvatar(result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -330,6 +353,7 @@ function UserProfileModal({ isOpen, onClose, profile, onSave }: UserProfileModal
       occupation: occupation.trim(),
       age: age.trim(),
       details: details.trim(),
+      avatar: avatar,
       isSetupCompleted: true,
     });
     onClose();
@@ -342,7 +366,7 @@ function UserProfileModal({ isOpen, onClose, profile, onSave }: UserProfileModal
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92, y: 15 }}
         transition={{ type: "spring", stiffness: 350, damping: 25 }}
-        className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-cyan-500/40 dark:border-cyan-500/50 relative overflow-hidden select-none"
+        className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-cyan-500/40 dark:border-cyan-500/50 relative overflow-hidden select-none max-h-[90vh] overflow-y-auto"
       >
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 shadow-[0_0_12px_rgba(0,229,255,0.5)]" />
 
@@ -361,7 +385,7 @@ function UserProfileModal({ isOpen, onClose, profile, onSave }: UserProfileModal
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                Save your background so CORE AI learns and adapts to you.
+                Save your background & customize avatar so CORE AI learns and adapts to you.
               </p>
             </div>
           </div>
@@ -375,6 +399,77 @@ function UserProfileModal({ isOpen, onClose, profile, onSave }: UserProfileModal
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          {/* Avatar Picker Section */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/80 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block uppercase tracking-wider text-[11px]">
+              Profile Avatar & Photo
+            </label>
+            
+            <div className="flex items-center gap-4">
+              <UserAvatar avatar={avatar} name={name || "User"} size="xl" />
+              
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3.5 py-1.5 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/50 text-cyan-600 dark:text-cyan-300 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-xs"
+                  >
+                    <Camera className="w-4 h-4 text-cyan-500" />
+                    <span>Upload Personal Photo</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </div>
+
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatar("")}
+                    className="text-[11px] text-rose-500 hover:underline cursor-pointer text-left font-medium"
+                  >
+                    Remove Custom Avatar
+                  </button>
+                )}
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                  Upload JPG/PNG photo or choose a preset avatar badge below.
+                </p>
+              </div>
+            </div>
+
+            {/* Preset Avatars Selection */}
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/80">
+              <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 block mb-2 uppercase tracking-wider">
+                Or Select Preset Avatar:
+              </span>
+              <div className="grid grid-cols-6 gap-2">
+                {PRESET_AVATARS.map((preset) => {
+                  const isSelected = avatar === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setAvatar(preset.id)}
+                      className={`p-2 rounded-xl border text-base flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
+                        isSelected
+                          ? "bg-cyan-500/30 border-cyan-400 ring-2 ring-cyan-400 shadow-[0_0_12px_rgba(0,229,255,0.4)] scale-105"
+                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                      }`}
+                      title={preset.name}
+                    >
+                      <span>{preset.emoji}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
               Your Name
@@ -459,7 +554,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Settings dropdown tab state
-  const [activeView, setActiveView] = useState<"chat" | "evaluator" | "visuals" | "writer">("chat");
+  const [activeView, setActiveView] = useState<"chat" | "evaluator" | "visuals">("chat");
   const [prototypeIconRotation, setPrototypeIconRotation] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -531,6 +626,47 @@ export default function App() {
     setTimeout(() => setUserProfileSaveToast(false), 3500);
   };
 
+  // Prompt Templates Library State
+  const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>(() => {
+    const saved = localStorage.getItem("core_ai_prompt_templates");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed parsing prompt templates:", e);
+      }
+    }
+    return DEFAULT_PROMPT_TEMPLATES;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("core_ai_prompt_templates", JSON.stringify(promptTemplates));
+  }, [promptTemplates]);
+
+  const handleAddPromptTemplate = (newTpl: Omit<PromptTemplate, "id" | "createdAt">) => {
+    const created: PromptTemplate = {
+      ...newTpl,
+      id: `tpl_custom_${Date.now()}`,
+      createdAt: Date.now(),
+    };
+    setPromptTemplates((prev) => [created, ...prev]);
+    playUiSound("toggle", soundEffectsEnabled);
+  };
+
+  const handleDeletePromptTemplate = (id: string) => {
+    setPromptTemplates((prev) => prev.filter((t) => t.id !== id));
+    playUiSound("toggle", soundEffectsEnabled);
+  };
+
+  const handleSelectPromptTemplate = (content: string) => {
+    setInputText((prev) => (prev ? `${prev}\n\n${content}` : content));
+    playUiSound("toggle", soundEffectsEnabled);
+    setTimeout(() => {
+      chatInputRef.current?.focus();
+    }, 100);
+  };
+
+
   // Custom Preferences
   const [customInstructions, setCustomInstructions] = useState<CustomInstructions>({
     targetDomain: "General Startup",
@@ -539,11 +675,7 @@ export default function App() {
     codePreference: "React 19 & Tailwind v4",
   });
 
-  const [themeSettings, setThemeSettings] = useState<ThemeSettings>({
-    neonGlowStrength: "vibrant",
-    baseContrast: "normal",
-    accentColor: "#00e5ff",
-  });
+  const [themeSettings, setThemeSettings] = useState<ThemeSettings>(DEFAULT_THEME_SETTINGS);
 
   // Dark Mode state with persistence
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -586,7 +718,7 @@ export default function App() {
   // Input states
   const [inputText, setInputText] = useState("");
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; fileName?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1156,8 +1288,9 @@ export default function App() {
 
     const unsubTheme = subscribeThemeSettings((th) => {
       if (th) {
-        lastRemoteThemeJsonRef.current = JSON.stringify(th);
-        setThemeSettings(th);
+        const merged = { ...DEFAULT_THEME_SETTINGS, ...th };
+        lastRemoteThemeJsonRef.current = JSON.stringify(merged);
+        setThemeSettings(merged);
       }
     });
 
@@ -1519,15 +1652,13 @@ export default function App() {
   const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith("image/")) {
-        alert("Only image attachments (PNG, JPEG, WebP) are currently supported.");
-        return;
-      }
+      const mimeType = file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "text/plain");
       const reader = new FileReader();
       reader.onload = () => {
         setAttachedImage({
           base64: (reader.result as string).split(",")[1],
-          mimeType: file.type,
+          mimeType: mimeType,
+          fileName: file.name,
         });
       };
       reader.readAsDataURL(file);
@@ -1675,102 +1806,65 @@ export default function App() {
 
       const base64Audio = data.audio;
       if (base64Audio) {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        activeAudioCtxRef.current = audioCtx;
+        try {
+          const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+          const audioCtx = new AudioCtxClass();
+          activeAudioCtxRef.current = audioCtx;
 
-        const binary = atob(base64Audio);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-
-        const handlePlaybackEnded = () => {
-          activeAudioSourceRef.current = null;
-          if (activeAudioCtxRef.current) {
-            try {
-              if (activeAudioCtxRef.current.state !== "closed") {
-                activeAudioCtxRef.current.close();
-              }
-            } catch (e) {}
-            activeAudioCtxRef.current = null;
+          const binary = atob(base64Audio);
+          const pcmBytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            pcmBytes[i] = binary.charCodeAt(i);
           }
-          if (speechRequestIdRef.current === currentReqId) {
-            setIsSpeaking(false);
-            setSpeakingMessageId(null);
-          }
-        };
 
-        const wrapPcmWithWavHeader = (pcmBytes: Uint8Array, sampleRate: number): Uint8Array => {
-          const buffer = new ArrayBuffer(44 + pcmBytes.length);
-          const view = new DataView(buffer);
-          const writeString = (v: DataView, offset: number, str: string) => {
-            for (let i = 0; i < str.length; i++) {
-              v.setUint8(offset + i, str.charCodeAt(i));
+          const numSamples = Math.floor(pcmBytes.length / 2);
+          if (numSamples <= 0) {
+            throw new Error("Empty PCM audio payload");
+          }
+
+          const handlePlaybackEnded = () => {
+            activeAudioSourceRef.current = null;
+            if (activeAudioCtxRef.current) {
+              try {
+                if (activeAudioCtxRef.current.state !== "closed") {
+                  activeAudioCtxRef.current.close();
+                }
+              } catch (e) {}
+              activeAudioCtxRef.current = null;
+            }
+            if (speechRequestIdRef.current === currentReqId) {
+              setIsSpeaking(false);
+              setSpeakingMessageId(null);
             }
           };
-          writeString(view, 0, "RIFF");
-          view.setUint32(4, 36 + pcmBytes.length, true);
-          writeString(view, 8, "WAVE");
-          writeString(view, 12, "fmt ");
-          view.setUint32(16, 16, true);
-          view.setUint16(20, 1, true); // Raw PCM = 1
-          view.setUint16(22, 1, true); // Mono = 1
-          view.setUint32(24, sampleRate, true);
-          view.setUint32(28, sampleRate * 2, true);
-          view.setUint16(32, 2, true);
-          view.setUint16(34, 16, true);
-          writeString(view, 36, "data");
-          view.setUint32(40, pcmBytes.length, true);
 
-          const wavBytes = new Uint8Array(buffer);
-          wavBytes.set(pcmBytes, 44);
-          return wavBytes;
-        };
+          // Create AudioBuffer directly from 16-bit PCM (24kHz Mono)
+          const audioBuffer = audioCtx.createBuffer(1, numSamples, 24000);
+          const channelData = audioBuffer.getChannelData(0);
+          const dataView = new DataView(pcmBytes.buffer, pcmBytes.byteOffset, pcmBytes.byteLength);
 
-        const wavBytes = wrapPcmWithWavHeader(bytes, 24000);
+          for (let i = 0; i < numSamples; i++) {
+            channelData[i] = dataView.getInt16(i * 2, true) / 32768.0;
+          }
 
-        audioCtx.decodeAudioData(
-          wavBytes.buffer,
-          (buffer) => {
-            if (speechRequestIdRef.current !== currentReqId) return;
-            setSpeechLoadingId(null);
+          setSpeechLoadingId(null);
+          if (speechRequestIdRef.current === currentReqId) {
             setIsSpeaking(true);
             if (msgId) setSpeakingMessageId(msgId);
-
-            const source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(audioCtx.destination);
-            source.onended = handlePlaybackEnded;
-            activeAudioSourceRef.current = source;
-            source.start();
-          },
-          (err) => {
-            console.warn("WAV decode failed, trying PCM-16 decoding fallback:", err);
-            if (speechRequestIdRef.current !== currentReqId) return;
-            try {
-              const numSamples = Math.floor(bytes.length / 2);
-              const dataView = new DataView(bytes.buffer);
-              const audioBuffer = audioCtx.createBuffer(1, numSamples, 24000);
-              const channelData = audioBuffer.getChannelData(0);
-              for (let i = 0; i < numSamples; i++) {
-                channelData[i] = dataView.getInt16(i * 2, true) / 32768.0;
-              }
-              setSpeechLoadingId(null);
-              setIsSpeaking(true);
-              if (msgId) setSpeakingMessageId(msgId);
-
-              const source = audioCtx.createBufferSource();
-              source.buffer = audioBuffer;
-              source.connect(audioCtx.destination);
-              source.onended = handlePlaybackEnded;
-              activeAudioSourceRef.current = source;
-              source.start();
-            } catch (pcmErr) {
-              console.error("PCM playback failed, falling back to Web Speech:", pcmErr);
-              speakWebFallback(text, msgId, currentReqId);
-            }
           }
-        );
+
+          const source = audioCtx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioCtx.destination);
+          source.onended = handlePlaybackEnded;
+          activeAudioSourceRef.current = source;
+          source.start();
+        } catch (audioErr) {
+          console.warn("Direct PCM audio playback failed, falling back to Web Speech:", audioErr);
+          if (speechRequestIdRef.current === currentReqId) {
+            speakWebFallback(text, msgId, currentReqId);
+          }
+        }
       } else {
         speakWebFallback(text, msgId, currentReqId);
       }
@@ -1788,12 +1882,16 @@ export default function App() {
   const speakWebFallback = (text: string, msgId?: string, reqId?: number) => {
     const currentReqId = reqId ?? speechRequestIdRef.current;
 
+    setSpeechLoadingId(null);
+
     if (speechKeepAliveRef.current) {
       clearInterval(speechKeepAliveRef.current);
       speechKeepAliveRef.current = null;
     }
     if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
     }
 
     const clean = sanitizeTextForSpeech(text);
@@ -1803,6 +1901,11 @@ export default function App() {
         setSpeakingMessageId(null);
       }
       return;
+    }
+
+    if (speechRequestIdRef.current === currentReqId) {
+      setIsSpeaking(true);
+      if (msgId) setSpeakingMessageId(msgId);
     }
 
     const mode = getActiveMode();
@@ -2195,7 +2298,7 @@ export default function App() {
         }
       }
 
-      // 3. Alt + 1 to 5 -> Switch Synthesizer Views
+      // 3. Alt + 1 to 2 -> Switch Synthesizer Views
       if (e.altKey) {
         if (e.key === "1") {
           e.preventDefault();
@@ -2203,9 +2306,6 @@ export default function App() {
         } else if (e.key === "2") {
           e.preventDefault();
           setActiveView("evaluator");
-        } else if (e.key === "3") {
-          e.preventDefault();
-          setActiveView("writer");
         }
       }
 
@@ -2719,13 +2819,16 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center justify-between text-xs pt-0.5">
-                      <div className="min-w-0 pr-2">
-                        <h4 className="font-extrabold text-slate-100 truncate text-xs">
-                          {userProfile.name || "Set Your Name"}
-                        </h4>
-                        <p className="text-[10px] text-slate-300 font-medium truncate mt-0.5">
-                          {userProfile.occupation || "Add your occupation/role"} {userProfile.age ? `• Age ${userProfile.age}` : ""}
-                        </p>
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <UserAvatar avatar={userProfile.avatar} name={userProfile.name} size="sm" />
+                        <div className="min-w-0">
+                          <h4 className="font-extrabold text-slate-100 truncate text-xs">
+                            {userProfile.name || "Set Your Name"}
+                          </h4>
+                          <p className="text-[10px] text-slate-300 font-medium truncate mt-0.5">
+                            {userProfile.occupation || "Add your occupation/role"} {userProfile.age ? `• Age ${userProfile.age}` : ""}
+                          </p>
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -3194,7 +3297,15 @@ export default function App() {
                 </div>
               ) : (
                 /* Compact Active Chat Message Thread */
-                <div className="flex-1 overflow-y-auto px-3 pt-3 pb-40 sm:pb-48 space-y-3.5 max-w-3xl w-full mx-auto select-none">
+                <div className={`flex-1 overflow-y-auto px-3 pt-3 pb-40 sm:pb-48 space-y-3.5 max-w-3xl w-full mx-auto select-none transition-all ${
+                  themeSettings.chatBackgroundTexture === "cyber_grid"
+                    ? "bg-[radial-gradient(#00e5ff_1px,transparent_1px)] [background-size:20px_20px]"
+                    : themeSettings.chatBackgroundTexture === "ambient_dots"
+                    ? "bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:12px_12px]"
+                    : themeSettings.chatBackgroundTexture === "radial_glow"
+                    ? "bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-950/40 via-slate-950 to-slate-950"
+                    : ""
+                }`}>
                   {/* Sticky Pinned Messages Bar with Framer Motion slide animation */}
                   <AnimatePresence mode="wait">
                     {allPinnedMessages.length > 0 ? (
@@ -3544,6 +3655,8 @@ export default function App() {
                         key={msg.id}
                         index={idx}
                         message={msg}
+                        userProfile={userProfile}
+                        themeSettings={themeSettings}
                         onCopyMessage={handleCopyMessage}
                         onSpeakText={(text, id) => handleSpeakText(text, id || msg.id)}
                         onStopSpeaking={handleStopSpeaking}
@@ -3625,26 +3738,6 @@ export default function App() {
                   onAnalyzeImage={handleAnalyzeImageFromEngine}
                   isGenerating={isGeneratingMockup}
                   isAnalyzing={isAiProcessing}
-                  onBackToChat={() => setActiveView("chat")}
-                />
-              )}
-            </motion.div>
-          )}
-
-          {activeView === "writer" && (
-            <motion.div
-              key="writer-view"
-              initial={{ opacity: 0, y: 12, scale: 0.985 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.985 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            >
-              {isWriting ? (
-                <WritingAssistantSkeleton />
-              ) : (
-                <WritingAssistant
-                  onDraftDocument={handleDraftFromAssistant}
-                  isDrafting={isWriting}
                   onBackToChat={() => setActiveView("chat")}
                 />
               )}
@@ -3763,6 +3856,7 @@ export default function App() {
                     <ChevronUp className={`w-2.5 h-2.5 transition-transform duration-200 ${quickActionsOpen ? "rotate-180" : ""}`} />
                   </button>
 
+
                   {/* Quick Actions Popover */}
                   <AnimatePresence>
                     {quickActionsOpen && (
@@ -3841,14 +3935,14 @@ export default function App() {
                   type="button"
                   onClick={handleTriggerAttachment}
                   className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
-                  title="Attach Sketch / Image"
+                  title="Attach Document / PDF / Sketch / Image"
                 >
                   <Paperclip className="w-4 h-4" />
                 </button>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf,text/plain,text/csv,text/markdown,.pdf,.doc,.docx,.txt"
                   onChange={handleAttachmentChange}
                   className="hidden"
                 />
@@ -3868,18 +3962,29 @@ export default function App() {
                 {/* Float Thumbnail of loaded attachment if any */}
                 {attachedImage && (
                   <div className="relative shrink-0 pr-1.5">
-                    <div className="w-8 h-8 rounded border overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center" style={{ borderColor: themeSettings.accentColor }}>
-                      <img
-                        src={`data:${attachedImage.mimeType};base64,${attachedImage.base64}`}
-                        alt="Thumbnail attachment"
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="px-2 py-1 rounded border overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center gap-1.5 max-w-[140px]" style={{ borderColor: themeSettings.accentColor }}>
+                      {attachedImage.mimeType === "application/pdf" || attachedImage.fileName?.endsWith(".pdf") ? (
+                        <>
+                          <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                          <span className="text-[10px] font-mono font-bold truncate text-slate-700 dark:text-slate-200">
+                            {attachedImage.fileName || "PDF File"}
+                          </span>
+                        </>
+                      ) : (
+                        <div className="w-6 h-6 rounded overflow-hidden shrink-0">
+                          <img
+                            src={`data:${attachedImage.mimeType};base64,${attachedImage.base64}`}
+                            alt="Thumbnail attachment"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
                     </div>
                     <button
                       type="button"
                       onClick={() => setAttachedImage(null)}
-                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-rose-500 rounded-full text-white cursor-pointer"
+                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-rose-500 rounded-full text-white cursor-pointer z-10"
                     >
                       <X className="w-2.5 h-2.5" />
                     </button>
@@ -3995,7 +4100,12 @@ export default function App() {
         onSaveOwnerProfile={handleSaveOwnerProfile}
         userProfile={userProfile}
         onSaveUserProfile={handleSaveUserProfile}
+        promptTemplates={promptTemplates}
+        onAddPromptTemplate={handleAddPromptTemplate}
+        onDeletePromptTemplate={handleDeletePromptTemplate}
+        onSelectPromptTemplate={handleSelectPromptTemplate}
       />
+
 
       {/* Keyboard Shortcuts Modal */}
       <AnimatePresence>

@@ -23,13 +23,16 @@ import {
   Smile,
   CheckCheck
 } from "lucide-react";
-import { ChatMessage as ChatMessageType, MarketAnalysisReport } from "../types";
+import { ChatMessage as ChatMessageType, MarketAnalysisReport, UserProfile, ThemeSettings } from "../types";
 import { CoreAiLogo } from "./CoreAiLogo";
 import { MarketAnalysisCard } from "./MarketAnalysisReportView";
 import { VoiceVisualizer } from "./VoiceVisualizer";
+import { UserAvatar } from "./UserAvatar";
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  userProfile?: UserProfile;
+  themeSettings?: ThemeSettings;
   onCopyMessage: (id: string, text: string) => void;
   onSpeakText: (text: string, id?: string) => void;
   onStopSpeaking?: () => void;
@@ -299,6 +302,8 @@ const POPULAR_EMOJIS = PRESET_EMOJIS;
 
 const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   message,
+  userProfile,
+  themeSettings,
   onCopyMessage,
   onSpeakText,
   onStopSpeaking,
@@ -315,6 +320,46 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   index
 }) => {
   const isUser = message.role === "user";
+
+  // Computed dynamic styling based on user Theme & UI Redesign Settings
+  const bubbleStyle = themeSettings?.chatBubbleStyle || "glass";
+  const fontFamilyClass =
+    themeSettings?.fontFamily === "tech_mono"
+      ? "font-mono"
+      : themeSettings?.fontFamily === "serif_editorial"
+      ? "font-serif"
+      : themeSettings?.fontFamily === "space_grotesk"
+      ? "font-display"
+      : "font-sans";
+
+  const cornerRadiusClass =
+    themeSettings?.cornerRadius === "sharp"
+      ? "rounded-md"
+      : themeSettings?.cornerRadius === "soft"
+      ? "rounded-2xl"
+      : themeSettings?.cornerRadius === "pill"
+      ? "rounded-3xl"
+      : "rounded-xl";
+
+  const showAvatars = themeSettings?.showAvatars !== false;
+  const showTimestamps = themeSettings?.showTimestamps !== false;
+
+  const userBubbleStyleClass = useMemo(() => {
+    switch (bubbleStyle) {
+      case "minimal":
+        return `bg-slate-800 dark:bg-slate-800 text-white border-none shadow-none ${cornerRadiusClass} ${fontFamilyClass}`;
+      case "rounded_pill":
+        return `bg-slate-900 dark:bg-slate-800/95 border border-slate-700/80 text-white shadow-sm rounded-3xl ${fontFamilyClass}`;
+      case "retro_card":
+        return `bg-slate-950 border-2 border-slate-700 dark:border-cyan-400 text-white shadow-[3px_3px_0px_0px_rgba(0,229,255,0.3)] ${cornerRadiusClass} ${fontFamilyClass}`;
+      case "cyber_border":
+        return `bg-slate-950 border border-[#00e5ff] text-slate-100 shadow-[0_0_12px_rgba(0,229,255,0.25)] ${cornerRadiusClass} ${fontFamilyClass}`;
+      case "glass":
+      default:
+        return `bg-slate-900/90 dark:bg-slate-800/95 backdrop-blur-md border border-slate-800 dark:border-slate-700/80 text-white dark:text-slate-100 shadow-sm ${cornerRadiusClass} ${fontFamilyClass}`;
+    }
+  }, [bubbleStyle, cornerRadiusClass, fontFamilyClass]);
+
   const structuredSections = useMemo(
     () => (!isUser ? parseStructuredSections(message.text) : null),
     [isUser, message.text]
@@ -441,35 +486,37 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
       }`}
     >
       {/* Avatar Icon */}
-      {isUser ? (
-        <motion.div
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{
-            type: "spring",
-            stiffness: 450,
-            damping: 22,
-            delay: index !== undefined ? Math.min(index * 0.02 + 0.04, 0.22) : 0.04,
-          }}
-          className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border bg-slate-900 dark:bg-cyan-950 text-white dark:text-cyan-200 border-slate-800 dark:border-cyan-800 shadow-xs flex items-center justify-center shrink-0 font-bold text-xs select-none"
-        >
-          <User className="w-3.5 h-3.5" />
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ scale: 0.5, rotate: -20 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{
-            type: "spring",
-            stiffness: 450,
-            damping: 22,
-            delay: index !== undefined ? Math.min(index * 0.02 + 0.04, 0.22) : 0.04,
-          }}
-          className="shrink-0 cursor-pointer"
-          title="CORE AI Assistant"
-        >
-          <CoreAiLogo size="xs" showText={false} glow={true} />
-        </motion.div>
+      {showAvatars && (
+        isUser ? (
+          <motion.div
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 450,
+              damping: 22,
+              delay: index !== undefined ? Math.min(index * 0.02 + 0.04, 0.22) : 0.04,
+            }}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border bg-slate-900 dark:bg-cyan-950 text-white dark:text-cyan-200 border-slate-800 dark:border-cyan-800 shadow-xs flex items-center justify-center shrink-0 font-bold text-xs select-none"
+          >
+            <User className="w-3.5 h-3.5" />
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ scale: 0.5, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{
+              type: "spring",
+              stiffness: 450,
+              damping: 22,
+              delay: index !== undefined ? Math.min(index * 0.02 + 0.04, 0.22) : 0.04,
+            }}
+            className="shrink-0 cursor-pointer"
+            title="CORE AI Assistant"
+          >
+            <CoreAiLogo size="xs" showText={false} glow={true} />
+          </motion.div>
+        )
       )}
 
       {/* Message Container */}
@@ -726,17 +773,34 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
 
         {/* User Message Bubble */}
         {isUser ? (
-          isEditing ? (
+          <div className="space-y-1.5 flex flex-col items-end">
+            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 mb-0.5 select-none">
+              <span className="text-[10px] font-mono font-bold text-slate-300 dark:text-slate-400">
+                {userProfile?.name || "You"}
+              </span>
+              <UserAvatar avatar={userProfile?.avatar} name={userProfile?.name} size="xs" />
+            </div>
+            {isEditing ? (
             <div className="p-3 rounded-2xl rounded-tr-none bg-slate-900 dark:bg-slate-800 border border-cyan-500/50 text-white shadow-md font-sans space-y-2">
               {message.imageAttached && (
-                <div className="mb-2 max-w-xs rounded-xl overflow-hidden border border-slate-700 shadow-xs">
-                  <img
-                    src={`data:${message.imageAttached.mimeType};base64,${message.imageAttached.base64}`}
-                    alt="User uploaded attachment"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-auto max-h-[160px] object-cover"
-                  />
-                </div>
+                message.imageAttached.mimeType === "application/pdf" || message.imageAttached.fileName?.endsWith(".pdf") ? (
+                  <div className="mb-2 max-w-xs p-2 rounded-xl bg-slate-950/90 border border-cyan-500/40 flex items-center gap-2 text-xs text-cyan-300 font-mono">
+                    <FileText className="w-5 h-5 text-[#00e5ff] shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold truncate text-slate-100">{message.imageAttached.fileName || "Attached Document (PDF)"}</div>
+                      <div className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider">PDF Document • Analysed by AI</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-2 max-w-xs rounded-xl overflow-hidden border border-slate-700 shadow-xs">
+                    <img
+                      src={`data:${message.imageAttached.mimeType};base64,${message.imageAttached.base64}`}
+                      alt="User uploaded attachment"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-auto max-h-[160px] object-cover"
+                    />
+                  </div>
+                )
               )}
               <textarea
                 value={editText}
@@ -784,21 +848,32 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
               onMouseDown={handlePressStart}
               onMouseUp={handlePressEnd}
               onMouseLeave={handlePressEnd}
-              className="p-3.5 rounded-2xl rounded-tr-none bg-slate-900 dark:bg-slate-800/95 border border-slate-800 dark:border-slate-700/80 text-white dark:text-slate-100 text-xs leading-relaxed shadow-sm font-sans select-none sm:select-text"
+              className={`p-3.5 leading-relaxed font-sans select-none sm:select-text ${userBubbleStyleClass}`}
             >
               {message.imageAttached && (
-                <div className="mb-2 max-w-xs rounded-xl overflow-hidden border border-slate-700 shadow-xs">
-                  <img
-                    src={`data:${message.imageAttached.mimeType};base64,${message.imageAttached.base64}`}
-                    alt="User uploaded attachment"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-auto max-h-[160px] object-cover"
-                  />
-                </div>
+                message.imageAttached.mimeType === "application/pdf" || message.imageAttached.fileName?.endsWith(".pdf") ? (
+                  <div className="mb-2 max-w-xs p-2 rounded-xl bg-slate-950/90 border border-cyan-500/40 flex items-center gap-2 text-xs text-cyan-300 font-mono">
+                    <FileText className="w-5 h-5 text-[#00e5ff] shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold truncate text-slate-100">{message.imageAttached.fileName || "Attached Document (PDF)"}</div>
+                      <div className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider">PDF Document • Analysed by AI</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-2 max-w-xs rounded-xl overflow-hidden border border-slate-700 shadow-xs">
+                    <img
+                      src={`data:${message.imageAttached.mimeType};base64,${message.imageAttached.base64}`}
+                      alt="User uploaded attachment"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-auto max-h-[160px] object-cover"
+                    />
+                  </div>
+                )
               )}
               <p className="whitespace-pre-wrap">{message.text}</p>
             </div>
-          )
+          )}
+          </div>
         ) : (
           /* AI Response Message Layout - Intelligent Workspace Mode */
           <div className="space-y-2.5">
@@ -948,7 +1023,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
         {/* Message Toolbar Footer */}
         <div className={`flex flex-wrap items-center gap-2 pt-0.5 ${isUser ? "justify-end" : "justify-start"}`}>
           <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-mono">
-            <span>{message.timestamp}</span>
+            {showTimestamps && <span>{message.timestamp}</span>}
             {!isUser && (
               message.isTyping ? (
                 <span className="inline-flex items-center gap-1.5 text-[9px] text-cyan-400 font-mono font-semibold px-2 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/40">

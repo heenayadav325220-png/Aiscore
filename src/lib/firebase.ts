@@ -148,11 +148,17 @@ export async function saveGuidanceToFirestore(guidance: PrototypeGuidance) {
  */
 export function subscribeCustomInstructions(onUpdate: (instructions: CustomInstructions) => void) {
   const ref = doc(db, SETTINGS_COL, "custom_instructions");
-  return onSnapshot(ref, (docSnap) => {
-    if (docSnap.exists()) {
-      onUpdate(docSnap.data() as CustomInstructions);
+  return onSnapshot(
+    ref,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        onUpdate(docSnap.data() as CustomInstructions);
+      }
+    },
+    (error) => {
+      console.warn("Firestore custom instructions subscription notice:", error);
     }
-  });
+  );
 }
 
 export async function saveCustomInstructionsToFirestore(instructions: CustomInstructions) {
@@ -166,11 +172,17 @@ export async function saveCustomInstructionsToFirestore(instructions: CustomInst
 
 export function subscribeThemeSettings(onUpdate: (theme: ThemeSettings) => void) {
   const ref = doc(db, SETTINGS_COL, "theme_settings");
-  return onSnapshot(ref, (docSnap) => {
-    if (docSnap.exists()) {
-      onUpdate(docSnap.data() as ThemeSettings);
+  return onSnapshot(
+    ref,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        onUpdate(docSnap.data() as ThemeSettings);
+      }
+    },
+    (error) => {
+      console.warn("Firestore theme settings subscription notice:", error);
     }
-  });
+  );
 }
 
 export async function saveThemeSettingsToFirestore(theme: ThemeSettings) {

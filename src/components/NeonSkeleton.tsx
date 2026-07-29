@@ -2,6 +2,44 @@ import React from "react";
 import { motion } from "motion/react";
 import { Sparkles, Cpu, Code, ImageIcon, FileText, Zap } from "lucide-react";
 
+export function TypingDotsIndicator({ label = "Processing" }: { label?: string }) {
+  return (
+    <div className="inline-flex items-center gap-2 py-1.5 px-3 bg-cyan-500/10 dark:bg-cyan-950/70 rounded-full border border-cyan-500/30 text-[#00e5ff] shadow-[0_0_12px_rgba(0,229,255,0.15)] select-none">
+      {label && (
+        <span className="text-[11px] font-mono font-bold tracking-wider uppercase text-cyan-600 dark:text-cyan-300">
+          {label}
+        </span>
+      )}
+      <div className="flex items-center gap-1">
+        <motion.span
+          animate={{
+            scale: [0.8, 1.4, 0.8],
+            opacity: [0.35, 1, 0.35],
+          }}
+          transition={{ duration: 0.75, repeat: Infinity, delay: 0 }}
+          className="w-1.5 h-1.5 rounded-full bg-[#00e5ff] shadow-[0_0_8px_#00e5ff]"
+        />
+        <motion.span
+          animate={{
+            scale: [0.8, 1.4, 0.8],
+            opacity: [0.35, 1, 0.35],
+          }}
+          transition={{ duration: 0.75, repeat: Infinity, delay: 0.2 }}
+          className="w-1.5 h-1.5 rounded-full bg-[#00e5ff] shadow-[0_0_8px_#00e5ff]"
+        />
+        <motion.span
+          animate={{
+            scale: [0.8, 1.4, 0.8],
+            opacity: [0.35, 1, 0.35],
+          }}
+          transition={{ duration: 0.75, repeat: Infinity, delay: 0.4 }}
+          className="w-1.5 h-1.5 rounded-full bg-[#00e5ff] shadow-[0_0_8px_#00e5ff]"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function GlobalNeonLoader({ label = "CORE AI MATRIX SYNTHESIZING..." }: { label?: string }) {
   return (
     <div className="flex flex-col items-center justify-center p-6 space-y-3 select-none">
@@ -19,12 +57,7 @@ export function GlobalNeonLoader({ label = "CORE AI MATRIX SYNTHESIZING..." }: {
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="w-1.5 h-1.5 bg-[#00e5ff] rounded-full animate-bounce delay-100" />
-        <span className="w-1.5 h-1.5 bg-[#00e5ff] rounded-full animate-bounce delay-200" />
-        <span className="w-1.5 h-1.5 bg-[#00e5ff] rounded-full animate-bounce delay-300" />
-        <span className="text-xs font-mono font-extrabold uppercase tracking-widest text-[#00e5ff] neon-text-glow">
-          {label}
-        </span>
+        <TypingDotsIndicator label={label} />
       </div>
     </div>
   );
@@ -32,34 +65,48 @@ export function GlobalNeonLoader({ label = "CORE AI MATRIX SYNTHESIZING..." }: {
 
 export function ChatSkeleton() {
   return (
-    <div className="flex gap-3.5 items-start max-w-2xl w-full my-3 p-4 bg-white dark:bg-slate-900/90 border-2 border-cyan-500/40 dark:border-cyan-500/50 rounded-2xl shadow-[0_0_20px_rgba(0,229,255,0.15)] animate-pulse">
-      <div className="w-8 h-8 rounded-full border border-[#00e5ff] bg-slate-950 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(0,229,255,0.3)]">
-        <Cpu className="w-4 h-4 text-[#00e5ff]" />
+    <motion.div
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
+      className="flex gap-3.5 items-start max-w-xl w-full my-3 p-4 bg-white/90 dark:bg-slate-900/95 border-2 border-cyan-500/40 dark:border-cyan-500/50 rounded-2xl shadow-[0_0_24px_rgba(0,229,255,0.18)] backdrop-blur-md select-none"
+    >
+      <div className="relative shrink-0">
+        <div className="w-8 h-8 rounded-full border-2 border-[#00e5ff] bg-slate-950 flex items-center justify-center shadow-[0_0_12px_rgba(0,229,255,0.4)]">
+          <Cpu className="w-4 h-4 text-[#00e5ff] animate-pulse" />
+        </div>
+        <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00e5ff] opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00e5ff]"></span>
+        </span>
       </div>
-      <div className="flex-1 space-y-3">
+
+      <div className="flex-1 space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#00e5ff] neon-text-glow">
-              CORE AI SYNTHESIZING...
+            <span className="text-[11px] font-mono font-extrabold uppercase tracking-wider text-[#00e5ff] neon-text-glow flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#00e5ff] animate-spin" />
+              AI THINKING...
             </span>
           </div>
-          <span className="text-[9px] font-mono text-slate-400">Processing Matrix</span>
+          <span className="text-[9px] font-mono font-bold text-cyan-400 bg-cyan-950/70 dark:bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-500/40 shadow-xs">
+            Synthesizing
+          </span>
         </div>
 
-        {/* Shimmering Neon Line Skeletons */}
-        <div className="space-y-2">
-          <div className="h-3.5 bg-gradient-to-r from-cyan-500/30 via-cyan-400/60 to-cyan-500/30 rounded-full w-full animate-pulse" />
-          <div className="h-3.5 bg-gradient-to-r from-cyan-500/20 via-cyan-400/50 to-cyan-500/20 rounded-full w-5/6 animate-pulse" />
-          <div className="h-3.5 bg-gradient-to-r from-cyan-500/20 via-cyan-400/40 to-cyan-500/20 rounded-full w-4/6 animate-pulse" />
+        {/* Pulsating Dots Indicator Box */}
+        <div className="pt-0.5">
+          <TypingDotsIndicator label="Thinking" />
         </div>
 
-        {/* Technical Footer Pill Skeletons */}
-        <div className="flex items-center gap-2 pt-1">
-          <div className="h-5 w-20 bg-cyan-500/10 border border-cyan-500/30 rounded-full" />
-          <div className="h-5 w-24 bg-cyan-500/10 border border-cyan-500/30 rounded-full" />
+        {/* Shimmering Line Skeletons */}
+        <div className="space-y-1.5 pt-1">
+          <div className="h-2.5 bg-gradient-to-r from-cyan-500/30 via-cyan-400/60 to-cyan-500/30 rounded-full w-full animate-pulse" />
+          <div className="h-2.5 bg-gradient-to-r from-cyan-500/20 via-cyan-400/50 to-cyan-500/20 rounded-full w-4/5 animate-pulse" />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

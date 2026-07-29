@@ -83,6 +83,19 @@ export interface GuidanceStep {
   estimatedHours: number;
 }
 
+export type MilestoneStatus = "todo" | "in_progress" | "completed";
+
+export interface PrototypeMilestone {
+  id: string;
+  stepNumber: number;
+  title: string;
+  description: string;
+  estimatedHours: number;
+  status: MilestoneStatus;
+  order: number;
+  dueDate?: string;
+}
+
 export interface PrototypeGuidance {
   id: string;
   ideaId: string;

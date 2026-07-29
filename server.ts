@@ -1052,17 +1052,36 @@ app.post("/api/generate-speech", async (req, res) => {
 
     const ai = getGeminiClient();
 
-    // Clean text: strip code blocks, markdown headings, bold markers, URLs
+    // Clean text: strip code blocks, markdown headings, bold markers, URLs, and emojis
     const cleanText = String(text)
       .replace(/```[\s\S]*?```/g, " [code block] ")
       .replace(/`([^`]+)`/g, "$1")
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
       .replace(/[*#_~>]/g, " ")
+      .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Component}]/gu, "")
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2B55}\u{FE0F}]/gu, "")
       .replace(/\s+/g, " ")
       .trim();
 
+    // Limit text length to nearest sentence boundary for instant TTS response (under 2s)
+    let speechText = cleanText;
+    if (speechText.length > 900) {
+      const truncated = speechText.slice(0, 900);
+      const lastBoundary = Math.max(
+        truncated.lastIndexOf(". "),
+        truncated.lastIndexOf("! "),
+        truncated.lastIndexOf("? "),
+        truncated.lastIndexOf("। ")
+      );
+      if (lastBoundary > 200) {
+        speechText = truncated.slice(0, lastBoundary + 1);
+      } else {
+        speechText = truncated;
+      }
+    }
+
     // Detect if text is Hindi (Devanagari script) or language is Hindi/Hinglish
-    const containsDevanagari = /[\u0900-\u097F]/.test(cleanText);
+    const containsDevanagari = /[\u0900-\u097F]/.test(speechText);
     const isHindiOrHinglish = containsDevanagari || language === "hi" || language === "hinglish";
 
     let instructionPrefix = "";
@@ -1083,7 +1102,7 @@ app.post("/api/generate-speech", async (req, res) => {
 
     const response = await retryWithBackoff(() => ai.models.generateContent({
       model: "gemini-3.1-flash-tts-preview",
-      contents: [{ parts: [{ text: `${instructionPrefix}${cleanText}` }] }],
+      contents: [{ parts: [{ text: `${instructionPrefix}${speechText}` }] }],
       config: {
         responseModalities: ["AUDIO"],
         speechConfig: {
@@ -1140,11 +1159,23 @@ app.post("/api/chat", async (req, res) => {
     }
 
     const sysInstruction = `
-      You are CORE AI, a premium, intelligent, high-performance problem-solving engine & AI workspace assistant.
+      You are CORE AI, an elite, highly intelligent, master-level problem-solving engine & AI workspace assistant.
       
       CORE WORKSPACE MANTRA: You help users THINK → UNDERSTAND → ANALYZE → DECIDE → BUILD.
       
-      CURRENT OPERATIONAL STATE:
+      EXCELLENCE IN ANSWERING & WRITING (MASTER LEVEL DIRECTIVES):
+      1. HIGH-IMPACT CLARITY & STRUCTURE:
+         - Write with exceptional mastery, clarity, and structural polish.
+         - Avoid unnecessary filler words or generic conversational intro fluff (e.g., do not say "Sure! I would be happy to help you with that"). Jump straight into high-value, actionable insights.
+         - Use clean Markdown headers (###), **bold key phrases** for visual rhythm, bullet points for scannability, and structured tables when comparing options.
+         - Match the user's natural language and script effortlessly (English, Hinglish, Hindi, etc.) with fluent, native-sounding phrasing.
+
+      2. DEEP & ACTIONABLE CONTENT:
+         - Provide complete, deeply insightful, well-reasoned answers that address both immediate questions and underlying context.
+         - For technical / coding queries: Provide production-grade, bug-free, fully commented code with clear step-by-step logic and edge-case analysis.
+         - For study / concepts / decisions: Use clear mental models, real-world analogies, pros & cons, and step-by-step frameworks to make complex concepts crystal clear.
+
+      3. CURRENT OPERATIONAL STATE:
       ${modeGuidance}
 
       WHEN APPROPRIATE (especially for complex queries, technical requests, decision evaluations, or project builds), visually structure your responses using clear markdown sections like:
@@ -1167,7 +1198,7 @@ app.post("/api/chat", async (req, res) => {
       🚀 NEXT STEP
       The most practical recommended immediate action plan.
 
-      NOTE: Do not force simple, casual, or standard conversational chats into a rigid template. Keep simple chat responses natural, fluid, and direct. Use the structured breakdown when analyzing ideas, diagnosing issues, comparing choices, or planning technical implementations.
+      NOTE: Do not force simple, casual, or standard conversational chats into a rigid template. Keep simple chat responses natural, fluid, articulate, and direct. Use the structured breakdown when analyzing ideas, diagnosing issues, comparing choices, or planning technical implementations.
 
       PERMANENT APP OWNER & CREATOR KNOWLEDGE (MALIK DETAILS):
       - App Owner / Creator / Malik: Rohit
@@ -1319,6 +1350,82 @@ app.post("/api/generate-title-options", async (req, res) => {
     const opt3 = "AI Venture Exploration";
     const opt4 = "CORE Prototyping Thread";
     return res.json({ options: [opt1, opt2, opt3, opt4] });
+  }
+});
+
+// 8c. Summarize Thread - Executive Chat History Summary Route
+app.post("/api/summarize-thread", async (req, res) => {
+  const { messages, sessionTitle } = req.body;
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "Messages array is required to generate thread summary." });
+  }
+
+  try {
+    // Collect message transcript (limit to last 35 messages for optimal performance)
+    const recentMessages = messages.slice(-35);
+    const transcript = recentMessages
+      .map((m: any) => `${m.role === "user" ? "User" : "CORE AI"}: ${m.text}`)
+      .join("\n\n");
+
+    const ai = getGeminiClient();
+    const prompt = `
+      You are CORE AI, an executive-level strategic assistant.
+      Analyze the following chat conversation history titled "${sessionTitle || "CORE Chat Thread"}":
+
+      --- CHAT TRANSCRIPT ---
+      ${transcript}
+      --- END TRANSCRIPT ---
+
+      Generate a high-level executive summary tailored for quick context switching. Use clean Markdown formatting with the following structure:
+
+      ### 📌 Executive Overview
+      A concise 2-3 sentence overview of what problem, goal, or topic was discussed in this thread.
+
+      ### 💡 Key Insights & Decisions
+      - Bullet points highlighting the core solutions, technical architecture, decisions, or code patterns established.
+
+      ### 🚀 Action Items & Next Steps
+      - Actionable recommendations or next logical steps to continue work seamlessly.
+
+      ### 🎯 Quick Context Recap
+      A single, punchy sentence summarizing the main takeaway for instant context restoration.
+    `;
+
+    const response = await callGeminiWithCascade((model) =>
+      ai.models.generateContent({
+        model: model,
+        contents: prompt,
+        config: {
+          temperature: 0.4,
+        },
+      })
+    );
+
+    const summary = response.text?.trim() || "No summary generated.";
+    return res.json({ summary });
+  } catch (error: any) {
+    console.error("Error in /api/summarize-thread (serving fallback):", error);
+    // Construct local fallback executive summary
+    const userMsgCount = messages.filter((m: any) => m.role === "user").length;
+    const modelMsgCount = messages.filter((m: any) => m.role === "model").length;
+    const firstQuery = messages.find((m: any) => m.role === "user")?.text || "General discussion";
+    const lastQuery = messages.slice().reverse().find((m: any) => m.role === "user")?.text || firstQuery;
+
+    const fallbackSummary = `### 📌 Executive Overview
+Discussion thread titled "${sessionTitle || "CORE AI Session"}" containing ${messages.length} total messages (${userMsgCount} user prompts, ${modelMsgCount} AI responses). Primary topic initiated around: "${firstQuery.slice(0, 120)}...".
+
+### 💡 Key Insights & Decisions
+- **Main Inquiry**: Focus centered on resolving "${lastQuery.slice(0, 100)}...".
+- **Interaction Depth**: ${messages.length > 10 ? "Deep multi-turn technical/strategic exchange" : "Focused quick resolution session"}.
+
+### 🚀 Action Items & Next Steps
+- Review previous AI recommendations in the thread.
+- Resume conversation directly or ask follow-up questions to refine solutions.
+
+### 🎯 Quick Context Recap
+Active workspace thread for "${sessionTitle || "CORE AI Session"}" ready for seamless continuation.`;
+
+    return res.json({ summary: fallbackSummary });
   }
 });
 

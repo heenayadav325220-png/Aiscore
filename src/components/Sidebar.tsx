@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { UIMode, IdeaEvaluation, CustomInstructions, ThemeSettings, ChatSession, AppLanguage, OwnerProfile, UserProfile } from "../types";
 import { LANGUAGE_OPTIONS } from "../lib/translations";
+import { CoreAiLogo } from "./CoreAiLogo";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -52,6 +53,7 @@ interface SidebarProps {
   userEmail: string;
   onUpdateSessionTags?: (sessionId: string, tags: string[]) => void;
   onOpenAutoNameSelector?: (sessionId: string) => void;
+  onSummarizeThread?: (sessionId: string) => void;
   currentLanguage?: AppLanguage;
   onChangeLanguage?: (lang: AppLanguage) => void;
   ownerProfile?: OwnerProfile;
@@ -61,7 +63,7 @@ interface SidebarProps {
 }
 
 
-type SidebarSubTab = "menu" | "owner" | "profile" | "ideas" | "instructions" | "modes" | "themes" | "chats" | "xfactor";
+type SidebarSubTab = "menu" | "owner" | "profile" | "ideas" | "instructions" | "modes" | "themes" | "chats";
 
 export default function Sidebar({
   isOpen,
@@ -82,6 +84,7 @@ export default function Sidebar({
   userEmail,
   onUpdateSessionTags,
   onOpenAutoNameSelector,
+  onSummarizeThread,
   currentLanguage = "en",
   onChangeLanguage,
   ownerProfile = { name: "Rohit", className: "11th", age: "15", appTitle: "ASCEND STUDY / CORE AI" },
@@ -133,38 +136,6 @@ export default function Sidebar({
   const [instructionsForm, setInstructionsForm] = useState<CustomInstructions>({ ...customInstructions });
   const [themeForm, setThemeForm] = useState<ThemeSettings>({ ...themeSettings });
 
-  // X-Factor States
-  const [selectedIdeaId, setSelectedIdeaId] = useState<string>("");
-  const [customIdeaText, setCustomIdeaText] = useState<string>("");
-  const [xfactorResult, setXfactorResult] = useState<{
-    title: string;
-    unfairAdvantage: string;
-    growthLoop: string;
-    magicRetentionFeature: string;
-    marketPositioningEdge: string;
-    strategicTriggers: string[];
-  } | null>(() => {
-    const cached = localStorage.getItem("core_ai_xfactor");
-    if (cached) {
-      try {
-        return JSON.parse(cached);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
-  const [isLoadingXFactor, setIsLoadingXFactor] = useState<boolean>(false);
-  const [xfactorError, setXfactorError] = useState<string | null>(null);
-  const [copiedXFactor, setCopiedXFactor] = useState<boolean>(false);
-
-  // Auto-fill selected idea ID when ideas are loaded
-  useEffect(() => {
-    if (ideas.length > 0 && !selectedIdeaId) {
-      setSelectedIdeaId(ideas[0].id);
-    }
-  }, [ideas, selectedIdeaId]);
-
   useEffect(() => {
     setInstructionsForm({ ...customInstructions });
   }, [customInstructions]);
@@ -185,48 +156,6 @@ export default function Sidebar({
     setActiveSubTab("menu");
   };
 
-  const handleGenerateXFactor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoadingXFactor(true);
-    setXfactorError(null);
-
-    let targetIdeaText = "";
-    if (selectedIdeaId === "custom") {
-      targetIdeaText = customIdeaText;
-    } else {
-      const selectedIdea = ideas.find((i) => i.id === selectedIdeaId);
-      targetIdeaText = selectedIdea ? `${selectedIdea.title}: ${selectedIdea.idea}` : customIdeaText;
-    }
-
-    if (!targetIdeaText.trim()) {
-      setXfactorError("Please select an idea or enter custom concept text first.");
-      setIsLoadingXFactor(false);
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/generate-xfactor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idea: targetIdeaText }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate X-Factor.");
-      }
-
-      const data = await response.json();
-      setXfactorResult(data);
-      localStorage.setItem("core_ai_xfactor", JSON.stringify(data));
-    } catch (err: any) {
-      console.error(err);
-      setXfactorError(err.message || "An unexpected error occurred.");
-    } finally {
-      setIsLoadingXFactor(false);
-    }
-  };
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -245,7 +174,7 @@ export default function Sidebar({
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            transition={{ type: "spring", damping: 28, stiffness: 320 }}
             className="fixed top-0 bottom-0 left-0 w-[88vw] sm:w-[380px] md:w-[420px] max-w-[calc(100vw-1.5rem)] sm:max-w-[420px] bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 shadow-2xl z-50 flex flex-col justify-between text-slate-800 dark:text-slate-100"
           >
             {/* Header */}
@@ -272,7 +201,14 @@ export default function Sidebar({
             {/* Scrollable Panel Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {activeSubTab === "menu" && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-900 text-white border border-cyan-500/30 mb-3 shadow-md">
+                    <CoreAiLogo size="sm" showText={true} glow={true} />
+                    <span className="text-[10px] font-mono text-cyan-400 font-bold bg-cyan-500/20 px-2 py-0.5 rounded-full border border-cyan-500/30">
+                      v3.6 Pro
+                    </span>
+                  </div>
+
                   <span className="text-[10px] font-mono tracking-widest text-slate-400 dark:text-slate-500 uppercase font-bold px-1.5 block mb-2">
                     CORE NAVIGATION
                   </span>
@@ -332,26 +268,6 @@ export default function Sidebar({
                       <div>
                         <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">Ideas Hub</h4>
                         <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Analyzed ideas & wireframes ({ideas.length})</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-300 transition-colors" />
-                  </button>
-
-                  {/* X-Factor Strategic Catalyst */}
-                  <button
-                    onClick={() => setActiveSubTab("xfactor")}
-                    className="w-full text-left p-3 rounded-xl hover:bg-cyan-50/10 dark:hover:bg-cyan-950/30 hover:border-cyan-200/50 border border-transparent transition-all flex items-center justify-between group cursor-pointer bg-cyan-50/10 dark:bg-cyan-950/20"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-cyan-50 dark:bg-cyan-950 rounded-lg text-cyan-500 dark:text-cyan-400 group-hover:text-[#00e5ff] transition-colors">
-                        <Zap className="w-4 h-4 animate-pulse" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">X-Factor Catalyst</h4>
-                          <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-200 uppercase tracking-wider">New</span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-sans font-medium">Unlock non-obvious unfair advantages</p>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-300 transition-colors" />
@@ -985,189 +901,7 @@ export default function Sidebar({
                 </div>
               )}
 
-              {/* X-Factor Strategic Catalyst */}
-              {activeSubTab === "xfactor" && (
-                <div className="space-y-4 font-sans text-slate-800">
-                  <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-                    <button onClick={() => setActiveSubTab("menu")} className="text-xs text-cyan-500 font-bold cursor-pointer">← Back</button>
-                    <div className="flex items-center gap-1.5">
-                      <Zap className="w-4 h-4 text-cyan-500 fill-cyan-500/10" />
-                      <h3 className="text-sm font-bold font-display text-slate-800">X-Factor Catalyst</h3>
-                    </div>
-                  </div>
 
-                  {!xfactorResult ? (
-                    <form onSubmit={handleGenerateXFactor} className="space-y-4">
-                      <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                        Engineer a high-conviction, non-obvious unfair advantage and viral growth engine for your concept.
-                      </p>
-
-                      {ideas.length > 0 ? (
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono block">Select Analyzed Idea</label>
-                          <select
-                            value={selectedIdeaId}
-                            onChange={(e) => setSelectedIdeaId(e.target.value)}
-                            className="w-full p-2.5 rounded-xl border border-slate-100 text-xs text-slate-700 bg-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 cursor-pointer"
-                          >
-                            {ideas.map((i) => (
-                              <option key={i.id} value={i.id}>
-                                {i.title} ({i.overallScore} pts)
-                              </option>
-                            ))}
-                            <option value="custom">-- Enter a Custom Concept --</option>
-                          </select>
-                        </div>
-                      ) : null}
-
-                      {(ideas.length === 0 || selectedIdeaId === "custom") && (
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono block">Custom Concept Details</label>
-                          <textarea
-                            value={customIdeaText}
-                            onChange={(e) => setCustomIdeaText(e.target.value)}
-                            className="w-full p-2.5 rounded-xl border border-slate-100 text-xs text-slate-700 bg-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 min-h-[90px]"
-                            placeholder="Describe your startup, audience, or project idea in a sentence or two..."
-                            required
-                          />
-                        </div>
-                      )}
-
-                      {xfactorError && (
-                        <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-[10px] text-rose-600 font-medium">
-                          ⚠️ {xfactorError}
-                        </div>
-                      )}
-
-                      <button
-                        type="submit"
-                        disabled={isLoadingXFactor}
-                        className={`w-full py-2.5 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-slate-900/10 ${
-                          isLoadingXFactor ? "opacity-75 cursor-not-allowed" : ""
-                        }`}
-                      >
-                        {isLoadingXFactor ? (
-                          <>
-                            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Engineering Moat...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Zap className="w-3.5 h-3.5 fill-current animate-pulse" />
-                            <span>Catalyze Unfair Advantage</span>
-                          </>
-                        )}
-                      </button>
-                    </form>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* Premium Neon Accent Card */}
-                      <div className="p-4 rounded-2xl bg-slate-950 border border-cyan-500/40 shadow-[0_0_15px_rgba(0,229,255,0.15)] text-white space-y-4">
-                        <div>
-                          <span className="text-[8px] font-mono font-bold tracking-widest text-cyan-400 block uppercase">ENGINEERED BLUEPRINT</span>
-                          <h4 className="text-xs font-bold font-display text-[#00e5ff] mt-0.5">{xfactorResult.title}</h4>
-                        </div>
-
-                        {/* Unfair Advantage */}
-                        <div className="space-y-1 text-left">
-                          <div className="flex items-center gap-1.5">
-                            <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                            <span className="text-[9px] font-mono font-extrabold text-cyan-400 uppercase tracking-wider">Unfair Moat Advantage</span>
-                          </div>
-                          <p className="text-[10px] text-slate-300 leading-relaxed pl-5 font-medium font-sans">
-                            {xfactorResult.unfairAdvantage}
-                          </p>
-                        </div>
-
-                        {/* Growth Loop */}
-                        <div className="space-y-1 text-left">
-                          <div className="flex items-center gap-1.5">
-                            <Infinity className="w-3.5 h-3.5 text-cyan-400" />
-                            <span className="text-[9px] font-mono font-extrabold text-cyan-400 uppercase tracking-wider">Growth Flywheel Loop</span>
-                          </div>
-                          <p className="text-[10px] text-slate-300 leading-relaxed pl-5 font-medium font-sans">
-                            {xfactorResult.growthLoop}
-                          </p>
-                        </div>
-
-                        {/* Magic Feature */}
-                        <div className="space-y-1 text-left">
-                          <div className="flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                            <span className="text-[9px] font-mono font-extrabold text-cyan-400 uppercase tracking-wider">The Magic Stick Feature</span>
-                          </div>
-                          <p className="text-[10px] text-slate-300 leading-relaxed pl-5 font-medium font-sans">
-                            {xfactorResult.magicRetentionFeature}
-                          </p>
-                        </div>
-
-                        {/* Market Positioning Edge */}
-                        <div className="space-y-1 text-left">
-                          <div className="flex items-center gap-1.5">
-                            <Target className="w-3.5 h-3.5 text-cyan-400" />
-                            <span className="text-[9px] font-mono font-extrabold text-cyan-400 uppercase tracking-wider">Market Disruption Edge</span>
-                          </div>
-                          <p className="text-[10px] text-slate-300 leading-relaxed pl-5 font-medium font-sans">
-                            {xfactorResult.marketPositioningEdge}
-                          </p>
-                        </div>
-
-                        {/* Strategic Triggers */}
-                        <div className="space-y-1.5 pt-2.5 border-t border-slate-800 text-left">
-                          <span className="text-[8px] font-mono font-extrabold text-slate-400 uppercase tracking-widest block mb-1">STRATEGIC TRIGGER ACTION STEPS</span>
-                          <div className="space-y-1.5">
-                            {xfactorResult.strategicTriggers.map((trigger, idx) => (
-                              <div key={idx} className="flex items-start gap-2 text-[9.5px] text-slate-300 font-medium leading-relaxed">
-                                <span className="w-4 h-4 rounded bg-cyan-950 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 font-bold font-mono text-[8.5px] mt-0.5">
-                                  {idx + 1}
-                                </span>
-                                <span>{trigger}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Controls */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setXfactorResult(null);
-                            localStorage.removeItem("core_ai_xfactor");
-                          }}
-                          className="py-2 rounded-xl border border-slate-200 hover:border-slate-300 text-[10px] text-slate-600 font-bold bg-white text-center cursor-pointer transition-colors"
-                        >
-                          Catalyze Another
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const markdown = `### X-Factor Blueprint: ${xfactorResult.title}\n\n**🛡️ Unfair Moat:** ${xfactorResult.unfairAdvantage}\n\n**♾️ Growth Loop:** ${xfactorResult.growthLoop}\n\n**✨ Magic Feature:** ${xfactorResult.magicRetentionFeature}\n\n**🎯 Disruption Edge:** ${xfactorResult.marketPositioningEdge}\n\n**🚀 Action Steps:**\n${xfactorResult.strategicTriggers.map((t, i) => `${i + 1}. ${t}`).join("\n")}`;
-                            navigator.clipboard.writeText(markdown).then(() => {
-                              setCopiedXFactor(true);
-                              setTimeout(() => setCopiedXFactor(false), 2000);
-                            });
-                          }}
-                          className="py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-[10px] font-bold text-center cursor-pointer transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          {copiedXFactor ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-cyan-400" />
-                              <span>Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Copy Blueprint</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Active chats */}
               {activeSubTab === "chats" && (
@@ -1264,13 +998,16 @@ export default function Sidebar({
                           : true;
                         return matchesTag && matchesSearch;
                       })
-                      .map((sess) => {
+                      .map((sess, idx) => {
                         const isEditingThisSession = editingTagsSessionId === sess.id;
                         const tags = sess.tags || [];
 
                         return (
-                          <div
+                          <motion.div
                             key={sess.id}
+                            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.22, delay: Math.min(idx * 0.04, 0.25) }}
                             className={`p-3 rounded-xl border transition-all ${
                               activeSessionId === sess.id
                                 ? "bg-slate-50 dark:bg-slate-800/80 border-cyan-400 shadow-xs"
@@ -1294,6 +1031,21 @@ export default function Sidebar({
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0">
+                                {onSummarizeThread && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onSummarizeThread(sess.id);
+                                      onClose();
+                                    }}
+                                    className="p-1 rounded-lg text-[10px] font-bold flex items-center gap-0.5 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer hover:scale-105"
+                                    title="Summarize Thread (Executive Context)"
+                                  >
+                                    <Sparkles className="w-3 h-3 text-amber-500" />
+                                    <span className="text-[9px] font-mono">Summary</span>
+                                  </button>
+                                )}
                                 {onOpenAutoNameSelector && (
                                   <button
                                     type="button"
@@ -1469,7 +1221,7 @@ export default function Sidebar({
                                 </div>
                               </div>
                             )}
-                          </div>
+                          </motion.div>
                         );
                       })}
                   </div>

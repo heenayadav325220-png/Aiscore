@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence, Reorder } from "motion/react";
 import {
   Menu,
@@ -49,13 +49,17 @@ import {
   UserCog,
   GraduationCap,
   User,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft,
+  Download,
+  Loader2
 } from "lucide-react";
+import Markdown from "react-markdown";
 import { AppLanguage, OwnerProfile, UserProfile } from "./types";
 import { LANGUAGE_OPTIONS, TRANSLATIONS, getLanguageInstruction } from "./lib/translations";
 
 
-import { exportChatToHtml, exportChatToJson } from "./lib/exportUtils";
+import { exportChatToPdf } from "./lib/exportUtils";
 import {
   subscribeChatSessions,
   saveChatSessionToFirestore,
@@ -86,8 +90,11 @@ import IdeaEvaluator from "./components/IdeaEvaluator";
 import PrototypeEngine from "./components/PrototypeEngine";
 import WritingAssistant from "./components/WritingAssistant";
 import ImageGenerator from "./components/ImageGenerator";
+import ContextPromptSelector from "./components/ContextPromptSelector";
 import { ChatMessage as ChatMessageComponent } from "./components/ChatMessage";
 import { MarketAnalysisModal } from "./components/MarketAnalysisReportView";
+import { CoreAiLogo } from "./components/CoreAiLogo";
+import { VoiceVisualizer, SpeakingIndicatorWidget } from "./components/VoiceVisualizer";
 import {
   ChatSkeleton,
   ScorecardSkeleton,
@@ -107,7 +114,7 @@ function formatApiErrorMessage(err: any): string {
   ) {
     return "Connection slow or API limit reached. Please try again in a few moments!";
   }
-  if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("networkerror")) {
+  if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("networkerror") || msg.toLowerCase().includes("typeerror")) {
     return "Network connection slow or offline. Please check your network and retry!";
   }
   return msg || "Connection slow or API error occurred. Please try again!";
@@ -452,7 +459,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Settings dropdown tab state
-  const [activeView, setActiveView] = useState<"chat" | "evaluator" | "blueprint" | "visuals" | "writer">("chat");
+  const [activeView, setActiveView] = useState<"chat" | "evaluator" | "visuals" | "writer">("chat");
   const [prototypeIconRotation, setPrototypeIconRotation] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -605,8 +612,17 @@ export default function App() {
   // Audio / Speech settings
   const [voicePlaybackEnabled, setVoicePlaybackEnabled] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [speechLoadingId, setSpeechLoadingId] = useState<string | null>(null);
   const [isListeningVoice, setIsListeningVoice] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  const activeSpeakingMessageSnippet = useMemo(() => {
+    if (!speakingMessageId) return undefined;
+    const currentActiveMessages = getActiveMessages();
+    const msg = currentActiveMessages.find((m) => m.id === speakingMessageId);
+    return msg ? msg.text : undefined;
+  }, [speakingMessageId, chatSessions, activeSessionId]);
 
   // Active Session Tag Editing state
   const [activeTagPopoverOpen, setActiveTagPopoverOpen] = useState(false);
@@ -619,6 +635,106 @@ export default function App() {
   const [customPinnedOrder, setCustomPinnedOrder] = useState<string[]>([]);
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState<boolean>(true);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ isOpen: boolean; sessionId: string; title: string } | null>(null);
+
+  // Thread Summary State
+  const [threadSummaryModalOpen, setThreadSummaryModalOpen] = useState(false);
+  const [isSummarizingThread, setIsSummarizingThread] = useState(false);
+  const [threadSummaryText, setThreadSummaryText] = useState("");
+  const [threadSummarySession, setThreadSummarySession] = useState<{ id: string; title: string; messageCount: number } | null>(null);
+  const [threadSummaryCopied, setThreadSummaryCopied] = useState(false);
+
+  const handleSummarizeThread = async (targetSessionId?: string) => {
+    const session = targetSessionId
+      ? chatSessions.find((s) => s.id === targetSessionId)
+      : getActiveSession();
+
+    if (!session) return;
+
+    playUiSound("toggle", soundEffectsEnabled);
+    setThreadSummarySession({
+      id: session.id,
+      title: session.title,
+      messageCount: session.messages.length,
+    });
+    setThreadSummaryText("");
+    setThreadSummaryCopied(false);
+    setThreadSummaryModalOpen(true);
+
+    if (session.messages.length === 0) {
+      setThreadSummaryText("📌 **Thread Summary**: This chat session has no messages yet. Start a conversation to generate an executive thread summary.");
+      setIsSummarizingThread(false);
+      return;
+    }
+
+    setIsSummarizingThread(true);
+    try {
+      const res = await fetch("/api/summarize-thread", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: session.messages,
+          sessionTitle: session.title,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to summarize chat thread.");
+      }
+
+      const data = await res.json();
+      setThreadSummaryText(data.summary || "Summary generated successfully.");
+    } catch (e: any) {
+      console.error(e);
+      setThreadSummaryText(`⚠️ **Thread Summary Error**: ${formatApiErrorMessage(e)}`);
+    } finally {
+      setIsSummarizingThread(false);
+    }
+  };
+
+  const handleCopyThreadSummary = () => {
+    if (!threadSummaryText) return;
+    navigator.clipboard.writeText(threadSummaryText).then(() => {
+      playUiSound("copy", soundEffectsEnabled);
+      setThreadSummaryCopied(true);
+      setTimeout(() => setThreadSummaryCopied(false), 2000);
+    });
+  };
+
+  const handleDownloadThreadSummary = () => {
+    if (!threadSummaryText || !threadSummarySession) return;
+    playUiSound("toggle", soundEffectsEnabled);
+    const element = document.createElement("a");
+    const file = new Blob([threadSummaryText], { type: "text/markdown" });
+    element.href = URL.createObjectURL(file);
+    element.download = `${threadSummarySession.title.replace(/[^a-zA-Z0-9]/g, "_")}_Executive_Summary.md`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const handleInsertSummaryIntoChat = () => {
+    if (!threadSummarySession || !threadSummaryText) return;
+    playUiSound("toggle", soundEffectsEnabled);
+
+    const summaryMsg: ChatMessage = {
+      id: "msg_summary_" + Date.now(),
+      role: "model",
+      text: `📌 **Executive Thread Summary** (Context Switching Note):\n\n${threadSummaryText}`,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+
+    setChatSessions((prev) =>
+      prev.map((s) =>
+        s.id === threadSummarySession.id
+          ? { ...s, messages: [...s.messages, summaryMsg] }
+          : s
+      )
+    );
+
+    setActiveSessionId(threadSummarySession.id);
+    setActiveView("chat");
+    setThreadSummaryModalOpen(false);
+  };
 
   const handleCopyAllPinnedMessages = (pinnedMsgs: ChatMessage[]) => {
     if (pinnedMsgs.length === 0) return;
@@ -645,7 +761,7 @@ export default function App() {
     );
   };
 
-  const handleCopyMessage = (msgId: string, text: string) => {
+  const handleCopyMessage = useCallback((msgId: string, text: string) => {
     navigator.clipboard.writeText(text)
       .then(() => {
         setCopiedMessageId(msgId);
@@ -656,9 +772,9 @@ export default function App() {
       .catch((err) => {
         console.error("Failed to copy text: ", err);
       });
-  };
+  }, []);
 
-  const handleToggleReaction = (messageId: string, emoji: string) => {
+  const handleToggleReaction = useCallback((messageId: string, emoji: string) => {
     setChatSessions((prevSessions) =>
       prevSessions.map((session) => {
         if (session.id !== activeSessionId) return session;
@@ -679,16 +795,16 @@ export default function App() {
         };
       })
     );
-  };
+  }, [activeSessionId]);
 
-  const handleTogglePinMessage = (messageId: string) => {
-    const activeSession = chatSessions.find((s) => s.id === activeSessionId);
-    const targetMsg = activeSession?.messages.find((m) => m.id === messageId);
-    const willPin = !targetMsg?.isPinned;
-    playUiSound(willPin ? "pin" : "unpin", soundEffectsEnabled);
+  const handleTogglePinMessage = useCallback((messageId: string) => {
+    setChatSessions((prevSessions) => {
+      const activeSession = prevSessions.find((s) => s.id === activeSessionId);
+      const targetMsg = activeSession?.messages.find((m) => m.id === messageId);
+      const willPin = !targetMsg?.isPinned;
+      playUiSound(willPin ? "pin" : "unpin", soundEffectsEnabled);
 
-    setChatSessions((prevSessions) =>
-      prevSessions.map((session) => {
+      return prevSessions.map((session) => {
         if (session.id !== activeSessionId) return session;
         return {
           ...session,
@@ -700,9 +816,9 @@ export default function App() {
             };
           }),
         };
-      })
-    );
-  };
+      });
+    });
+  }, [activeSessionId, soundEffectsEnabled]);
 
   const handleScrollToMessage = (messageId: string) => {
     const el = document.getElementById(`msg-bubble-${messageId}`);
@@ -765,8 +881,10 @@ export default function App() {
   const messageEndRef = useRef<HTMLDivElement>(null);
   const speechRecognitionRef = useRef<any>(null);
   const speechKeepAliveRef = useRef<any>(null);
+  const speechRequestIdRef = useRef<number>(0);
   const activeAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const activeAudioCtxRef = useRef<AudioContext | null>(null);
+  const activeFetchAbortRef = useRef<AbortController | null>(null);
 
   const activeSessionIdRef = useRef<string>(activeSessionId);
   useEffect(() => {
@@ -1239,7 +1357,7 @@ export default function App() {
             if (data.title) {
               setChatSessions((currentSessions) =>
                 currentSessions.map((s) =>
-                  s.id === activeSessionId ? { ...s, title: data.title, titleAutoGenerated: true } : s
+                  s.id === targetSession.id ? { ...s, title: data.title, titleAutoGenerated: true } : s
                 )
               );
             }
@@ -1448,62 +1566,97 @@ export default function App() {
     }
   };
 
-  // Helper to sanitize markdown and code blocks out of speech synthesis text
+  // Helper to sanitize markdown, code blocks, and emojis out of speech synthesis text
   const sanitizeTextForSpeech = (rawText: string): string => {
     return rawText
       .replace(/```[\s\S]*?```/g, " [कोड या डेटा] ")
       .replace(/`([^`]+)`/g, "$1")
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
       .replace(/[*#_~>]/g, " ")
+      .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Component}]/gu, "")
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2B55}\u{FE0F}]/gu, "")
       .replace(/\s+/g, " ")
       .trim();
   };
 
-  // Speak response out loud using Gemini TTS if enabled, or browser SpeechSynthesis as fallback
-  const handleSpeakText = async (text: string) => {
+  // Stop any active speech synthesis or Web Audio playback cleanly and invalidate request token
+  const handleStopSpeaking = useCallback(() => {
+    speechRequestIdRef.current += 1;
+    if (activeFetchAbortRef.current) {
+      activeFetchAbortRef.current.abort();
+      activeFetchAbortRef.current = null;
+    }
     if (speechKeepAliveRef.current) {
       clearInterval(speechKeepAliveRef.current);
       speechKeepAliveRef.current = null;
     }
-
-    if (isSpeaking) {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
-      try {
-        if (activeAudioSourceRef.current) {
-          activeAudioSourceRef.current.stop();
-          activeAudioSourceRef.current = null;
-        }
-        if (activeAudioCtxRef.current && activeAudioCtxRef.current.state !== "closed") {
-          activeAudioCtxRef.current.close();
-          activeAudioCtxRef.current = null;
-        }
-      } catch (err) {
-        console.warn("Error stopping active AudioContext audio source:", err);
+    }
+    try {
+      if (activeAudioSourceRef.current) {
+        activeAudioSourceRef.current.stop();
+        activeAudioSourceRef.current = null;
       }
-      setIsSpeaking(false);
+      if (activeAudioCtxRef.current && activeAudioCtxRef.current.state !== "closed") {
+        activeAudioCtxRef.current.close();
+        activeAudioCtxRef.current = null;
+      }
+    } catch (err) {
+      console.warn("Error stopping active AudioContext audio source:", err);
+    }
+    setIsSpeaking(false);
+    setSpeakingMessageId(null);
+    setSpeechLoadingId(null);
+  }, []);
+
+  // Speak response out loud using high-fidelity Gemini AI TTS (natural Kore voice) with fallback
+  const handleSpeakText = async (text: string, msgId?: string) => {
+    // Toggle off if currently speaking or loading for this same message
+    if (
+      (isSpeaking || speechLoadingId) &&
+      msgId &&
+      (speakingMessageId === msgId || speechLoadingId === msgId)
+    ) {
+      handleStopSpeaking();
       return;
     }
 
-    setIsSpeaking(true);
-    const cleanSpeechText = sanitizeTextForSpeech(text);
+    // Always stop any current speech cleanly and increment request ID
+    handleStopSpeaking();
 
-    // Limit text length to nearest sentence boundary if exceptionally long, ensuring full sentence completion
+    const currentReqId = speechRequestIdRef.current;
+    if (msgId) {
+      setSpeechLoadingId(msgId);
+    }
+
+    const cleanSpeechText = sanitizeTextForSpeech(text);
+    if (!cleanSpeechText.trim()) {
+      setSpeechLoadingId(null);
+      return;
+    }
+
+    // Limit text snippet for sub-second Gemini TTS processing
     let speechPayload = cleanSpeechText;
-    if (speechPayload.length > 3000) {
-      const truncated = speechPayload.slice(0, 3000);
+    if (speechPayload.length > 900) {
+      const truncated = speechPayload.slice(0, 900);
       const lastBoundary = Math.max(
         truncated.lastIndexOf(". "),
         truncated.lastIndexOf("! "),
         truncated.lastIndexOf("? "),
-        truncated.lastIndexOf("\n")
+        truncated.lastIndexOf("। ")
       );
-      if (lastBoundary > 500) {
+      if (lastBoundary > 200) {
         speechPayload = truncated.slice(0, lastBoundary + 1);
+      } else {
+        speechPayload = truncated;
       }
     }
 
+    const controller = new AbortController();
+    activeFetchAbortRef.current = controller;
+
     try {
-      // Lazy attempt to use Gemini high-fidelity TTS route
       const response = await fetch("/api/generate-speech", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1512,17 +1665,20 @@ export default function App() {
           mode: getActiveMode() === "guider" ? "robotic" : "human",
           language: currentLanguage,
         }),
+        signal: controller.signal,
       });
 
-      if (!response.ok) throw new Error("TTS route error");
+      if (!response.ok) throw new Error(`TTS endpoint returned status ${response.status}`);
 
       const data = await response.json();
-      const audioBytes = data.audio;
-      if (audioBytes) {
+      if (speechRequestIdRef.current !== currentReqId) return;
+
+      const base64Audio = data.audio;
+      if (base64Audio) {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         activeAudioCtxRef.current = audioCtx;
 
-        const binary = atob(audioBytes);
+        const binary = atob(base64Audio);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) {
           bytes[i] = binary.charCodeAt(i);
@@ -1538,7 +1694,10 @@ export default function App() {
             } catch (e) {}
             activeAudioCtxRef.current = null;
           }
-          setIsSpeaking(false);
+          if (speechRequestIdRef.current === currentReqId) {
+            setIsSpeaking(false);
+            setSpeakingMessageId(null);
+          }
         };
 
         const wrapPcmWithWavHeader = (pcmBytes: Uint8Array, sampleRate: number): Uint8Array => {
@@ -1557,9 +1716,9 @@ export default function App() {
           view.setUint16(20, 1, true); // Raw PCM = 1
           view.setUint16(22, 1, true); // Mono = 1
           view.setUint32(24, sampleRate, true);
-          view.setUint32(28, sampleRate * 2, true); // byte rate (sampleRate * blockAlign)
-          view.setUint16(32, 2, true); // block align
-          view.setUint16(34, 16, true); // 16 bits per sample
+          view.setUint32(28, sampleRate * 2, true);
+          view.setUint16(32, 2, true);
+          view.setUint16(34, 16, true);
           writeString(view, 36, "data");
           view.setUint32(40, pcmBytes.length, true);
 
@@ -1570,10 +1729,14 @@ export default function App() {
 
         const wavBytes = wrapPcmWithWavHeader(bytes, 24000);
 
-        // Try standard decodeAudioData first with WAV container
         audioCtx.decodeAudioData(
           wavBytes.buffer,
           (buffer) => {
+            if (speechRequestIdRef.current !== currentReqId) return;
+            setSpeechLoadingId(null);
+            setIsSpeaking(true);
+            if (msgId) setSpeakingMessageId(msgId);
+
             const source = audioCtx.createBufferSource();
             source.buffer = buffer;
             source.connect(audioCtx.destination);
@@ -1582,23 +1745,20 @@ export default function App() {
             source.start();
           },
           (err) => {
-            console.warn("WAV decodeAudioData failed, trying raw PCM-16 decoding fallback:", err);
+            console.warn("WAV decode failed, trying PCM-16 decoding fallback:", err);
+            if (speechRequestIdRef.current !== currentReqId) return;
             try {
-              const bufferLength = bytes.length;
-              // Each sample is 2 bytes (16-bit)
-              const numSamples = Math.floor(bufferLength / 2);
+              const numSamples = Math.floor(bytes.length / 2);
               const dataView = new DataView(bytes.buffer);
-              
-              const audioBuffer = audioCtx.createBuffer(1, numSamples, 24000); // 24kHz as per Gemini TTS spec
+              const audioBuffer = audioCtx.createBuffer(1, numSamples, 24000);
               const channelData = audioBuffer.getChannelData(0);
-              
               for (let i = 0; i < numSamples; i++) {
-                // Read 16-bit signed integer, little endian (true)
-                const sample = dataView.getInt16(i * 2, true);
-                // Scale to float32 [-1.0, 1.0]
-                channelData[i] = sample / 32768.0;
+                channelData[i] = dataView.getInt16(i * 2, true) / 32768.0;
               }
-              
+              setSpeechLoadingId(null);
+              setIsSpeaking(true);
+              if (msgId) setSpeakingMessageId(msgId);
+
               const source = audioCtx.createBufferSource();
               source.buffer = audioBuffer;
               source.connect(audioCtx.destination);
@@ -1606,30 +1766,42 @@ export default function App() {
               activeAudioSourceRef.current = source;
               source.start();
             } catch (pcmErr) {
-              console.error("Raw PCM playback failed, falling back to Web Speech Synthesis:", pcmErr);
-              speakWebFallback(cleanSpeechText);
+              console.error("PCM playback failed, falling back to Web Speech:", pcmErr);
+              speakWebFallback(text, msgId, currentReqId);
             }
           }
         );
       } else {
-        speakWebFallback(cleanSpeechText);
+        speakWebFallback(text, msgId, currentReqId);
       }
-    } catch (e) {
-      console.warn("Express TTS not responsive, falling back to Web Speech Synthesis:", e);
-      speakWebFallback(cleanSpeechText);
+    } catch (e: any) {
+      if (e?.name === "AbortError") {
+        return;
+      }
+      console.warn("Gemini TTS fetch failed, falling back to Web Speech Synthesis:", e);
+      if (speechRequestIdRef.current === currentReqId) {
+        speakWebFallback(text, msgId, currentReqId);
+      }
     }
   };
 
-  const speakWebFallback = (text: string) => {
+  const speakWebFallback = (text: string, msgId?: string, reqId?: number) => {
+    const currentReqId = reqId ?? speechRequestIdRef.current;
+
     if (speechKeepAliveRef.current) {
       clearInterval(speechKeepAliveRef.current);
       speechKeepAliveRef.current = null;
     }
-    window.speechSynthesis.cancel();
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
 
     const clean = sanitizeTextForSpeech(text);
     if (!clean.trim()) {
-      setIsSpeaking(false);
+      if (speechRequestIdRef.current === currentReqId) {
+        setIsSpeaking(false);
+        setSpeakingMessageId(null);
+      }
       return;
     }
 
@@ -1643,7 +1815,6 @@ export default function App() {
     for (const raw of rawChunks) {
       const trimmed = raw.trim();
       if (!trimmed) continue;
-      // If a sentence is unusually long, split at punctuation or clause boundaries
       if (trimmed.length > 220) {
         const clauses = trimmed.split(/(?<=[,;:।])/g);
         for (const clause of clauses) {
@@ -1655,46 +1826,78 @@ export default function App() {
     }
 
     if (sentenceChunks.length === 0) {
-      setIsSpeaking(false);
+      if (speechRequestIdRef.current === currentReqId) {
+        setIsSpeaking(false);
+        setSpeakingMessageId(null);
+      }
       return;
     }
 
-    const voices = window.speechSynthesis.getVoices();
-    let selectedVoice: SpeechSynthesisVoice | null = null;
-    if (voices.length > 0) {
+    const getMatchingVoice = (): SpeechSynthesisVoice | null => {
+      if (typeof window === "undefined" || !window.speechSynthesis) return null;
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0) return null;
+
       if (isHindi) {
-        selectedVoice = voices.find(
-          (v) =>
-            v.lang.startsWith("hi") ||
-            v.lang.includes("HI") ||
-            v.name.toLowerCase().includes("hindi") ||
-            v.name.toLowerCase().includes("google \u0939\u093f\u0928\u094d\u0926\u0940") ||
-            v.name.toLowerCase().includes("kalpana") ||
-            v.name.toLowerCase().includes("hemant") ||
-            v.name.toLowerCase().includes("lekha")
-        ) || voices.find((v) => v.lang.includes("IN") || v.lang.includes("in")) || null;
+        return (
+          voices.find(
+            (v) =>
+              v.lang.startsWith("hi") ||
+              v.lang.includes("HI") ||
+              v.name.toLowerCase().includes("hindi") ||
+              v.name.toLowerCase().includes("kalpana") ||
+              v.name.toLowerCase().includes("hemant") ||
+              v.name.toLowerCase().includes("lekha")
+          ) ||
+          voices.find((v) => v.lang.includes("IN") || v.lang.includes("in")) ||
+          null
+        );
       } else {
-        const langCode = currentLanguage === "es" ? "es" : currentLanguage === "fr" ? "fr" : currentLanguage === "de" ? "de" : currentLanguage === "ja" ? "ja" : "en";
-        selectedVoice = voices.find((v) => v.lang.startsWith(langCode)) || null;
+        const langCode =
+          currentLanguage === "es"
+            ? "es"
+            : currentLanguage === "fr"
+            ? "fr"
+            : currentLanguage === "de"
+            ? "de"
+            : currentLanguage === "ja"
+            ? "ja"
+            : "en";
+        return voices.find((v) => v.lang.startsWith(langCode)) || null;
       }
-    }
+    };
+
+    let selectedVoice = getMatchingVoice();
 
     // Keep-alive heartbeat interval to prevent Chromium speech engine from timing out mid-speech
     speechKeepAliveRef.current = setInterval(() => {
-      if (window.speechSynthesis.speaking) {
+      if (speechRequestIdRef.current !== currentReqId) {
+        if (speechKeepAliveRef.current) clearInterval(speechKeepAliveRef.current);
+        return;
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis && window.speechSynthesis.speaking) {
         window.speechSynthesis.pause();
         window.speechSynthesis.resume();
       }
     }, 9000);
 
     const speakChunkAtIndex = (index: number) => {
+      if (speechRequestIdRef.current !== currentReqId) return;
+
       if (index >= sentenceChunks.length) {
         if (speechKeepAliveRef.current) {
           clearInterval(speechKeepAliveRef.current);
           speechKeepAliveRef.current = null;
         }
-        setIsSpeaking(false);
+        if (speechRequestIdRef.current === currentReqId) {
+          setIsSpeaking(false);
+          setSpeakingMessageId(null);
+        }
         return;
+      }
+
+      if (!selectedVoice) {
+        selectedVoice = getMatchingVoice();
       }
 
       const chunkText = sentenceChunks[index];
@@ -1703,7 +1906,16 @@ export default function App() {
       if (isHindi) {
         utterance.lang = "hi-IN";
       } else {
-        utterance.lang = currentLanguage === "es" ? "es-ES" : currentLanguage === "fr" ? "fr-FR" : currentLanguage === "de" ? "de-DE" : currentLanguage === "ja" ? "ja-JP" : "en-US";
+        utterance.lang =
+          currentLanguage === "es"
+            ? "es-ES"
+            : currentLanguage === "fr"
+            ? "fr-FR"
+            : currentLanguage === "de"
+            ? "de-DE"
+            : currentLanguage === "ja"
+            ? "ja-JP"
+            : "en-US";
       }
 
       if (selectedVoice) {
@@ -1722,21 +1934,155 @@ export default function App() {
       }
 
       utterance.onend = () => {
-        // Sequentially trigger next sentence chunk after current one finishes completely
-        speakChunkAtIndex(index + 1);
+        if (speechRequestIdRef.current === currentReqId) {
+          speakChunkAtIndex(index + 1);
+        }
       };
 
       utterance.onerror = (err) => {
         console.warn(`Speech chunk ${index} error:`, err);
-        // Continue to next sentence chunk
-        speakChunkAtIndex(index + 1);
+        if (speechRequestIdRef.current === currentReqId) {
+          speakChunkAtIndex(index + 1);
+        }
       };
 
-      window.speechSynthesis.speak(utterance);
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.speak(utterance);
+      } else {
+        if (speechRequestIdRef.current === currentReqId) {
+          setIsSpeaking(false);
+          setSpeakingMessageId(null);
+        }
+      }
     };
 
-    // Begin playing sentence queue from index 0
     speakChunkAtIndex(0);
+  };
+
+  // Generate AI response for a message thread
+  const generateAiResponseForThread = async (
+    messages: ChatMessage[],
+    sessionId: string,
+    imagePayload?: { base64: string; mimeType: string }
+  ) => {
+    setIsAiProcessing(true);
+
+    try {
+      let endpoint = "/api/chat";
+      let requestPayload: any = {
+        messages: messages,
+        activeMode: getActiveMode(),
+        customInstructions: `APP OWNER & CREATOR (MALIK): Name: ${ownerProfile.name} | Class: ${ownerProfile.className} | Age: ${ownerProfile.age} | App: ${ownerProfile.appTitle} | Domain: ${customInstructions.targetDomain} | style: ${customInstructions.personalityStyle} | coding: ${customInstructions.codePreference} | Language instruction: ${getLanguageInstruction(currentLanguage)}`,
+        userProfile: userProfile,
+      };
+
+      const lastMsg = messages[messages.length - 1];
+      if (imagePayload) {
+        endpoint = "/api/analyze-image";
+        requestPayload = {
+          base64Data: imagePayload.base64,
+          mimeType: imagePayload.mimeType,
+          prompt: lastMsg?.text || "Analyze this wireframe layout sketch and suggest user stories or tech implementation.",
+        };
+      } else if (lastMsg?.imageAttached) {
+        endpoint = "/api/analyze-image";
+        requestPayload = {
+          base64Data: lastMsg.imageAttached.base64,
+          mimeType: lastMsg.imageAttached.mimeType,
+          prompt: lastMsg.text || "Analyze this wireframe layout sketch and suggest user stories or tech implementation.",
+        };
+      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Synthesis failed (HTTP ${res.status}).`);
+      }
+
+      const data = await res.json();
+      const aiResponseText = data.text || data.analysis || "I've processed your input.";
+
+      const aiMsgId = "msg_ai_" + Date.now();
+      const aiMsg: ChatMessage = {
+        id: aiMsgId,
+        role: "model",
+        text: "",
+        timestamp: new Date().toLocaleTimeString(),
+        isTyping: true,
+      };
+
+      setChatSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, messages: [...s.messages, aiMsg] } : s))
+      );
+
+      let currentText = "";
+      let currentIndex = 0;
+      const totalLength = aiResponseText.length;
+      const step = Math.max(1, Math.ceil(totalLength / 180));
+      const intervalMs = 24;
+
+      const typingTimer = setInterval(() => {
+        if (currentIndex < totalLength) {
+          const nextIndex = Math.min(currentIndex + step, totalLength);
+          currentText += aiResponseText.substring(currentIndex, nextIndex);
+          currentIndex = nextIndex;
+
+          setChatSessions((prev) =>
+            prev.map((s) => {
+              if (s.id === sessionId) {
+                return {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === aiMsgId ? { ...m, text: currentText } : m
+                  ),
+                };
+              }
+              return s;
+            })
+          );
+        } else {
+          clearInterval(typingTimer);
+          setChatSessions((prev) =>
+            prev.map((s) => {
+              if (s.id === sessionId) {
+                return {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === aiMsgId ? { ...m, text: aiResponseText, isTyping: false } : m
+                  ),
+                };
+              }
+              return s;
+            })
+          );
+        }
+      }, intervalMs);
+
+      // Trigger automatic TTS if enabled
+      if (voicePlaybackEnabled) {
+        handleSpeakText(aiResponseText, aiMsgId);
+      }
+    } catch (err: any) {
+      console.error(err);
+      const friendlyAlert = formatApiErrorMessage(err);
+      setApiError(friendlyAlert);
+      const errorMsg: ChatMessage = {
+        id: "msg_err_" + Date.now(),
+        role: "model",
+        text: `⚠️ **System Integration Alert**: ${friendlyAlert}`,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      setChatSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, messages: [...s.messages, errorMsg] } : s))
+      );
+    } finally {
+      setIsAiProcessing(false);
+    }
   };
 
   // Handle general chat message submission
@@ -1772,118 +2118,44 @@ export default function App() {
       )
     );
 
-    setIsAiProcessing(true);
-
-    try {
-      let endpoint = "/api/chat";
-      let requestPayload: any = {
-        messages: updatedMessages,
-        activeMode: getActiveMode(),
-        customInstructions: `APP OWNER & CREATOR (MALIK): Name: ${ownerProfile.name} | Class: ${ownerProfile.className} | Age: ${ownerProfile.age} | App: ${ownerProfile.appTitle} | Domain: ${customInstructions.targetDomain} | style: ${customInstructions.personalityStyle} | coding: ${customInstructions.codePreference} | Language instruction: ${getLanguageInstruction(currentLanguage)}`,
-        userProfile: userProfile,
-      };
-
-      // Check if this is a direct instruction to evaluate an idea, or if an image is attached (multimodal)
-      if (imagePayload) {
-        endpoint = "/api/analyze-image";
-        requestPayload = {
-          base64Data: imagePayload.base64,
-          mimeType: imagePayload.mimeType,
-          prompt: textToSend || "Analyze this wireframe layout sketch and suggest user stories or tech implementation.",
-        };
-      }
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestPayload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Synthesis failed.");
-      }
-
-      const data = await res.json();
-      const aiResponseText = data.text || data.analysis || "I've processed your input.";
-
-      const aiMsgId = "msg_ai_" + Date.now();
-      const aiMsg: ChatMessage = {
-        id: aiMsgId,
-        role: "model",
-        text: "",
-        timestamp: new Date().toLocaleTimeString(),
-        isTyping: true,
-      };
-
-      setChatSessions((prev) =>
-        prev.map((s) => (s.id === activeSessionId ? { ...s, messages: [...s.messages, aiMsg] } : s))
-      );
-
-      let currentText = "";
-      let currentIndex = 0;
-      const totalLength = aiResponseText.length;
-      const step = Math.max(1, Math.ceil(totalLength / 250));
-      const intervalMs = 15;
-
-      const typingTimer = setInterval(() => {
-        if (currentIndex < totalLength) {
-          const nextIndex = Math.min(currentIndex + step, totalLength);
-          currentText += aiResponseText.substring(currentIndex, nextIndex);
-          currentIndex = nextIndex;
-
-          setChatSessions((prev) =>
-            prev.map((s) => {
-              if (s.id === activeSessionId) {
-                return {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === aiMsgId ? { ...m, text: currentText } : m
-                  ),
-                };
-              }
-              return s;
-            })
-          );
-        } else {
-          clearInterval(typingTimer);
-          setChatSessions((prev) =>
-            prev.map((s) => {
-              if (s.id === activeSessionId) {
-                return {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === aiMsgId ? { ...m, text: aiResponseText, isTyping: false } : m
-                  ),
-                };
-              }
-              return s;
-            })
-          );
-        }
-      }, intervalMs);
-
-      // Trigger automatic TTS if enabled
-      if (voicePlaybackEnabled) {
-        handleSpeakText(aiResponseText);
-      }
-    } catch (err: any) {
-      console.error(err);
-      const friendlyAlert = formatApiErrorMessage(err);
-      setApiError(friendlyAlert);
-      const errorMsg: ChatMessage = {
-        id: "msg_err_" + Date.now(),
-        role: "model",
-        text: `⚠️ **System Integration Alert**: ${friendlyAlert}`,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-      setChatSessions((prev) =>
-        prev.map((s) => (s.id === activeSessionId ? { ...s, messages: [...s.messages, errorMsg] } : s))
-      );
-    } finally {
-      setIsAiProcessing(false);
-    }
+    await generateAiResponseForThread(updatedMessages, activeSessionId, imagePayload || undefined);
   };
+
+  // Handle user editing a previous message & re-generating response
+  const handleEditMessage = useCallback(async (messageId: string, newText: string) => {
+    const activeSession = chatSessions.find((s) => s.id === activeSessionId);
+    if (!activeSession) return;
+
+    const msgIndex = activeSession.messages.findIndex((m) => m.id === messageId);
+    if (msgIndex === -1) return;
+
+    const targetMsg = activeSession.messages[msgIndex];
+    if (targetMsg.role !== "user") return;
+
+    const updatedUserMsg: ChatMessage = {
+      ...targetMsg,
+      text: newText,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+
+    // Keep all messages before this edited user message, then add updated user message
+    const trimmedMessages = [...activeSession.messages.slice(0, msgIndex), updatedUserMsg];
+
+    setChatSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSessionId
+          ? {
+              ...s,
+              messages: trimmedMessages,
+            }
+          : s
+      )
+    );
+
+    playUiSound("toggle", soundEffectsEnabled);
+
+    await generateAiResponseForThread(trimmedMessages, activeSessionId, targetMsg.imageAttached || undefined);
+  }, [chatSessions, activeSessionId, soundEffectsEnabled]);
 
   const activeViewRef = useRef(activeView);
   const handleSendMessageRef = useRef(handleSendMessage);
@@ -1933,12 +2205,6 @@ export default function App() {
           setActiveView("evaluator");
         } else if (e.key === "3") {
           e.preventDefault();
-          setActiveView("blueprint");
-        } else if (e.key === "4") {
-          e.preventDefault();
-          setActiveView("visuals");
-        } else if (e.key === "5") {
-          e.preventDefault();
           setActiveView("writer");
         }
       }
@@ -1964,6 +2230,10 @@ export default function App() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
+  }, []);
+
+  const handleOpenMarketReportModal = useCallback((rep: MarketAnalysisReport) => {
+    setActiveMarketReport(rep);
   }, []);
 
   // Direct Idea evaluation triggers
@@ -2006,7 +2276,7 @@ export default function App() {
       const systemConfirm: ChatMessage = {
         id: "msg_sys_" + Date.now(),
         role: "model",
-        text: `📊 **CORE Evaluation Completed!** I have analyzed your concept: **"${newEval.title}"**. Viability Verdict assigned: **${newEval.overallScore}%**. You can view the full scorecard, strengths matrix, and technical recommendations inside the *Blueprint Tab*.`,
+        text: `📊 **CORE Evaluation Completed!** I have analyzed your concept: **"${newEval.title}"**. Viability Verdict assigned: **${newEval.overallScore}%**. You can view the full scorecard, strengths matrix, and technical recommendations inside the *Viability Evaluator*.`,
         timestamp: new Date().toLocaleTimeString(),
       };
 
@@ -2050,13 +2320,13 @@ export default function App() {
 
       setGuidanceList((prev) => [newGuidance, ...prev]);
       setActiveGuidance(newGuidance);
-      setActiveView("blueprint");
+      setActiveView("evaluator");
 
       // Send a follow-up chat log
       const systemConfirm: ChatMessage = {
-        id: "msg_sys_blueprint_" + Date.now(),
+        id: "msg_sys_guidance_" + Date.now(),
         role: "model",
-        text: `🛠️ **Interactive Wireframe Blueprint Generated!** Click on the **Interactive Blueprint Tab** to view your mobile layout concept, review recommended tech stack items, and manage execution milestones.`,
+        text: `🛠️ **Implementation Roadmap Generated!** Strategic execution milestones and technical guidance have been compiled for your concept.`,
         timestamp: new Date().toLocaleTimeString(),
       };
 
@@ -2153,6 +2423,23 @@ export default function App() {
     }
   };
 
+  const handleSelectContextPrompt = useCallback((instruction: string) => {
+    playUiSound("toggle", soundEffectsEnabled);
+    setInputText((prev) => {
+      if (!prev.trim()) {
+        return instruction;
+      }
+      if (!prev.startsWith(instruction)) {
+        return `${instruction}${prev}`;
+      }
+      return prev;
+    });
+    setActiveView("chat");
+    setTimeout(() => {
+      chatInputRef.current?.focus();
+    }, 100);
+  }, [soundEffectsEnabled]);
+
   // Modular helper functions passed into sub-views
   const handleDraftFromAssistant = async (payload: {
     prompt: string;
@@ -2236,90 +2523,189 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#fcfcfc] dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 flex flex-col justify-between relative font-sans overflow-x-hidden select-none pb-2 transition-colors">
-      {/* Top Navigation Header */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 z-30 flex items-center justify-between px-2 sm:px-4 shadow-xs select-none transition-colors">
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
-          {/* Left: Sidebar Toggle Button [≡] */}
+      {/* Top Navigation Header (Organized: Strictly 4 Clean Items) */}
+      <header className="fixed top-0 left-0 right-0 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 z-30 flex items-center justify-between px-3 sm:px-5 shadow-xs select-none transition-colors">
+        {/* Left Side: 2 Items (1. Sidebar Toggle, 2. CORE AI Logo with Mode) */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* ITEM 1: Sidebar Toggle Button */}
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 transition-all cursor-pointer shrink-0 active:scale-95"
-            title="Open Menu Sidebar"
-            aria-label="Open Menu"
+            className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 transition-all cursor-pointer shrink-0 active:scale-95 border border-slate-200/50 dark:border-slate-700/50"
+            title="Open Main Navigation Sidebar"
+            aria-label="Open Sidebar Menu"
           >
             <Menu className="w-5 h-5 text-slate-800 dark:text-slate-100" />
           </button>
-          <span className="font-extrabold font-display text-sm sm:text-lg tracking-tight text-slate-950 dark:text-white neon-text-glow whitespace-nowrap shrink-0">
-            CORE AI
-          </span>
+
+          {/* ITEM 2: Brand Logo & Integrated Mode Pill */}
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                playUiSound("toggle", soundEffectsEnabled);
+                setActiveView("chat");
+              }}
+              className="cursor-pointer hover:opacity-90 transition-opacity flex items-center shrink-0"
+              title="Return to CORE AI Chat"
+            >
+              <CoreAiLogo size="sm" showText={true} glow={true} />
+            </button>
+
+            {/* Compact Active Mode Badge */}
+            <div className="hidden xs:flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700/80 shrink-0">
+              <div className="w-1.5 h-1.5 bg-[#00e5ff] rounded-full shadow-[0_0_8px_#00e5ff] shrink-0" />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold">
+                {getActiveMode()}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Center: Active mode status display & Firestore Live DB Badge */}
-        <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-          <div className="flex items-center gap-1 sm:gap-1.5 bg-slate-100 dark:bg-slate-800/90 px-2 sm:px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700 shrink-0">
-            <div className="w-1.5 h-1.5 bg-[#00e5ff] rounded-full shadow-[0_0_8px_#00e5ff] shrink-0" />
-            <span className="text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-slate-700 dark:text-slate-200 font-bold truncate max-w-[80px] xs:max-w-[120px] sm:max-w-none">
-              <span className="hidden xs:inline">Mode: </span>{getActiveMode()}
-            </span>
-          </div>
+        {/* Right Side: 2 Items (3. Context Action [New Chat / Back to Chat], 4. Quick Options Menu) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* ITEM 3: Primary Context Action Button */}
+          {activeView !== "chat" ? (
+            <button
+              type="button"
+              onClick={() => {
+                playUiSound("toggle", soundEffectsEnabled);
+                setActiveView("chat");
+              }}
+              className="px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-300 border border-cyan-400/40 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0 shadow-xs"
+              title="Return directly to Chat Screen"
+            >
+              <ArrowLeft className="w-4 h-4 text-[#00e5ff]" />
+              <span className="font-sans font-bold text-xs">Back to Chat</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                playUiSound("toggle", soundEffectsEnabled);
+                handleCreateNewSession();
+                setActiveView("chat");
+              }}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-cyan-950/80 hover:bg-slate-800 text-white dark:text-cyan-200 border border-slate-800 dark:border-cyan-500/40 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0 shadow-xs"
+              title="Start New Chat Thread"
+            >
+              <Plus className="w-4 h-4 text-cyan-400" />
+              <span className="font-mono text-xs font-bold">New Chat</span>
+            </button>
+          )}
 
-          <div className="hidden md:flex items-center gap-1.5 bg-emerald-500/10 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-500/30 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold whitespace-nowrap">
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981] shrink-0" />
-            <span>Firestore DB Live</span>
-          </div>
-        </div>
+          {/* ITEM 4: Quick Options & Settings Hub Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shrink-0 active:scale-95 border border-slate-200/50 dark:border-slate-700/50"
+              title="Quick Options & Controls"
+              aria-label="Quick Options Menu"
+            >
+              <MoreVertical className="w-5 h-5 text-slate-800 dark:text-slate-200" />
+            </button>
 
-        {/* Right: Touch-optimized Action Controls for Mobile & Desktop */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* Quick New Chat Header Button */}
-          <button
-            onClick={() => {
-              playUiSound("toggle", soundEffectsEnabled);
-              handleCreateNewSession();
-              setActiveView("chat");
-            }}
-            className="p-2 sm:px-2.5 sm:py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-400/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0"
-            title="Start New Chat Thread"
-          >
-            <Plus className="w-4 h-4 text-cyan-500" />
-            <span className="hidden sm:inline font-mono text-[11px]">New Chat</span>
-          </button>
+            {/* Quick options dropdown overlay */}
+            <AnimatePresence>
+              {settingsOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute right-0 top-full mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xl rounded-2xl p-3 z-50 overflow-hidden max-h-[85vh] overflow-y-auto space-y-3"
+                  >
+                    {/* Header Quick Toggles Bar (Theme, Voice Mute, PDF Export) */}
+                    <div className="p-2 bg-slate-50 dark:bg-slate-950/80 border border-slate-200/70 dark:border-slate-800 rounded-xl space-y-2">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold block px-1">
+                        Quick Controls
+                      </span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {/* Theme Switcher Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsDarkMode(!isDarkMode);
+                            playUiSound("toggle", soundEffectsEnabled);
+                          }}
+                          className="flex flex-col items-center justify-center p-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 border border-slate-200/60 dark:border-slate-700 transition-all cursor-pointer text-center"
+                          title="Toggle Light / Dark Mode"
+                        >
+                          {isDarkMode ? (
+                            <Sun className="w-4 h-4 text-amber-400 fill-amber-400/20 mb-1" />
+                          ) : (
+                            <Moon className="w-4 h-4 text-slate-700 mb-1" />
+                          )}
+                          <span className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-200">
+                            {isDarkMode ? "Light" : "Dark"}
+                          </span>
+                        </button>
 
-          {/* Dark Mode Toggle Button */}
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shrink-0 active:scale-95"
-            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            aria-label="Toggle Theme"
-          >
-            {isDarkMode ? (
-              <Sun className="w-4 h-4 text-amber-400 fill-amber-400/20" />
-            ) : (
-              <Moon className="w-4 h-4 text-slate-700" />
-            )}
-          </button>
+                        {/* Voice Speech Mute Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playUiSound("toggle", soundEffectsEnabled);
+                            if (isSpeaking) {
+                              handleStopSpeaking();
+                            }
+                            setVoicePlaybackEnabled(!voicePlaybackEnabled);
+                          }}
+                          className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all cursor-pointer text-center ${
+                            isSpeaking
+                              ? "bg-rose-500/20 border-rose-500/50 text-rose-400"
+                              : voicePlaybackEnabled
+                              ? "bg-cyan-500/10 border-cyan-400/30 text-cyan-600 dark:text-cyan-400"
+                              : "bg-white dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 text-slate-400"
+                          }`}
+                          title="Toggle AI Audio Voice Playback"
+                        >
+                          {isSpeaking ? (
+                            <VolumeX className="w-4 h-4 text-rose-400 mb-1 animate-pulse" />
+                          ) : voicePlaybackEnabled ? (
+                            <Volume2 className="w-4 h-4 text-cyan-500 mb-1" />
+                          ) : (
+                            <VolumeX className="w-4 h-4 text-slate-400 mb-1" />
+                          )}
+                          <span className="text-[10px] font-mono font-bold">
+                            {voicePlaybackEnabled ? "Voice On" : "Muted"}
+                          </span>
+                        </button>
 
-          {/* View Options & Menu Dropdown Trigger (Three Dot) */}
-          <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
-            className="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shrink-0 active:scale-95"
-            title="Menu & Options"
-            aria-label="Menu Options"
-          >
-            <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+                        {/* Quick PDF Export Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentSession = getActiveSession();
+                            if (currentSession) {
+                              playUiSound("toggle", soundEffectsEnabled);
+                              exportChatToPdf(currentSession);
+                              setSettingsOpen(false);
+                            }
+                          }}
+                          className="flex flex-col items-center justify-center p-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 border border-slate-200/60 dark:border-slate-700 transition-all cursor-pointer text-center"
+                          title="Export Current Chat as PDF"
+                        >
+                          <FileText className="w-4 h-4 text-cyan-500 mb-1" />
+                          <span className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-200">
+                            Export PDF
+                          </span>
+                        </button>
+                      </div>
 
-          {/* Quick options dropdown overlay */}
-          <AnimatePresence>
-            {settingsOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  transition={{ duration: 0.12 }}
-                  className="absolute right-0 top-full mt-2 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xl rounded-2xl p-2.5 z-50 overflow-hidden max-h-[85vh] overflow-y-auto"
-                >
+                      {/* Firestore DB Status */}
+                      <div className="flex items-center justify-between px-2 py-1 bg-emerald-500/10 dark:bg-emerald-950/40 rounded-lg border border-emerald-500/20 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
+                          <span>Firestore Cloud Database</span>
+                        </div>
+                        <span className="text-[9px] uppercase tracking-wider text-emerald-500 font-extrabold">Live</span>
+                      </div>
+                    </div>
+
                   {/* User Profile & Founder Info Section */}
                   <div className="p-2.5 mb-2 bg-gradient-to-br from-cyan-500/10 via-slate-900/90 to-blue-950/40 border border-cyan-500/35 rounded-xl space-y-2">
                     <div className="flex items-center justify-between">
@@ -2409,9 +2795,9 @@ export default function App() {
 
                   <div className="my-2 border-t border-slate-100 dark:border-slate-800" />
 
-                  {/* Chat Controls */}
+                  {/* Chat Controls & Export Options */}
                   <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold px-3 py-1 block">
-                    Chat Controls
+                    Chat & Export Controls
                   </span>
                   <button
                     onClick={() => {
@@ -2424,6 +2810,34 @@ export default function App() {
                   >
                     <Plus className="w-4 h-4 text-cyan-500" />
                     <span>New Chat Thread</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const currentSession = getActiveSession();
+                      if (currentSession) {
+                        playUiSound("toggle", soundEffectsEnabled);
+                        handleSummarizeThread(currentSession.id);
+                        setSettingsOpen(false);
+                      }
+                    }}
+                    className="w-full text-left p-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                    <span>Summarize Thread (AI Context)</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const currentSession = getActiveSession();
+                      if (currentSession) {
+                        playUiSound("toggle", soundEffectsEnabled);
+                        exportChatToPdf(currentSession);
+                        setSettingsOpen(false);
+                      }
+                    }}
+                    className="w-full text-left p-2 rounded-xl text-xs font-semibold flex items-center gap-2.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4 text-cyan-500" />
+                    <span>Export Chat as PDF Report</span>
                   </button>
                   <button
                     onClick={() => {
@@ -2496,7 +2910,8 @@ export default function App() {
             )}
           </AnimatePresence>
         </div>
-      </header>
+      </div>
+    </header>
 
       {/* Main Container Stage */}
       <main className="flex-1 pt-14 pb-24 overflow-x-hidden max-w-7xl w-full mx-auto select-none">
@@ -2576,37 +2991,32 @@ export default function App() {
           {activeView === "chat" && (
             <motion.div
               key="chat-view"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, y: 12, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.985 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
               className="h-full flex flex-col justify-between"
             >
               {/* CORE AI Redesigned Home Screen State */}
               {getActiveMessages().length === 0 ? (
                 <div className="flex-1 max-w-3xl w-full mx-auto px-4 py-4 sm:py-8 flex flex-col items-center justify-center space-y-6 sm:space-y-8 select-none">
-                  {/* Central CORE Engine Header & Icon */}
+                  {/* Central CORE Engine Header & Classic Emblem Logo */}
                   <div className="flex flex-col items-center text-center space-y-3">
                     <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ duration: 0.4 }}
-                      className="relative flex items-center justify-center"
+                      initial={{ scale: 0.85, opacity: 0, y: 10 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex flex-col items-center"
                     >
-                      <div className="absolute inset-0 rounded-2xl bg-[#00e5ff]/20 blur-xl animate-pulse" />
-                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border-2 border-[#00e5ff] shadow-[0_0_25px_rgba(0,229,255,0.4)] flex items-center justify-center bg-slate-950 relative z-10">
-                        <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-[#00e5ff] animate-pulse" />
-                      </div>
+                      <CoreAiLogo size="lg" showText={true} glow={true} />
                     </motion.div>
 
-                    <div className="space-y-1.5 max-w-lg">
+                    <div className="space-y-1.5 max-w-lg mt-1">
                       <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[#00e5ff] text-[10px] font-mono font-bold uppercase tracking-widest">
                         <Zap className="w-3 h-3 text-[#00e5ff]" />
                         CORE Engine v3.6 Active
                       </div>
-                      <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-slate-900 dark:text-white tracking-tight">
-                        CORE AI
-                      </h1>
-                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed pt-1">
                         Bring an idea, problem, decision, or project. CORE helps you think, analyze, and build.
                       </p>
                     </div>
@@ -2784,7 +3194,7 @@ export default function App() {
                 </div>
               ) : (
                 /* Compact Active Chat Message Thread */
-                <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3.5 max-w-3xl w-full mx-auto select-none">
+                <div className="flex-1 overflow-y-auto px-3 pt-3 pb-40 sm:pb-48 space-y-3.5 max-w-3xl w-full mx-auto select-none">
                   {/* Sticky Pinned Messages Bar with Framer Motion slide animation */}
                   <AnimatePresence mode="wait">
                     {allPinnedMessages.length > 0 ? (
@@ -3129,18 +3539,23 @@ export default function App() {
                   </div>
 
                   <AnimatePresence initial={false}>
-                    {getActiveMessages().map((msg) => (
+                    {getActiveMessages().map((msg, idx) => (
                       <ChatMessageComponent
                         key={msg.id}
+                        index={idx}
                         message={msg}
                         onCopyMessage={handleCopyMessage}
-                        onSpeakText={handleSpeakText}
+                        onSpeakText={(text, id) => handleSpeakText(text, id || msg.id)}
+                        onStopSpeaking={handleStopSpeaking}
+                        isSpeaking={isSpeaking && speakingMessageId === msg.id}
+                        isSpeechLoading={speechLoadingId === msg.id}
                         onTogglePin={handleTogglePinMessage}
                         onToggleReaction={handleToggleReaction}
+                        onEditMessage={handleEditMessage}
                         onTriggerEvaluation={handleTriggerEvaluation}
                         onTriggerGuidance={handleTriggerGuidance}
                         onTriggerMarketAnalysis={handleTriggerMarketAnalysis}
-                        onOpenMarketReportModal={(rep) => setActiveMarketReport(rep)}
+                        onOpenMarketReportModal={handleOpenMarketReportModal}
                         copiedMessageId={copiedMessageId}
                       />
                     ))}
@@ -3150,6 +3565,8 @@ export default function App() {
                   {isAiProcessing && <ChatSkeleton />}
 
                   <div ref={messageEndRef} />
+                  {/* Extra scrollable space below last message so user can scroll past the message end comfortably */}
+                  <div className="h-20 sm:h-28 shrink-0 pointer-events-none" />
                 </div>
               )}
             </motion.div>
@@ -3158,9 +3575,10 @@ export default function App() {
           {activeView === "evaluator" && (
             <motion.div
               key="evaluator-view"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, y: 12, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.985 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             >
               {isAiProcessing ? (
                 <ScorecardSkeleton />
@@ -3169,6 +3587,7 @@ export default function App() {
                   evaluation={activeEvaluation}
                   onGenerateGuidance={handleTriggerGuidance}
                   isGeneratingGuidance={isGeneratingGuidance}
+                  onBackToChat={() => setActiveView("chat")}
                 />
               ) : (
                 <div className="text-center p-12 max-w-md mx-auto space-y-4">
@@ -3177,42 +3596,27 @@ export default function App() {
                   <p className="text-xs text-slate-400 dark:text-slate-400 font-medium font-sans">
                     Submit any raw idea on the conversational chat console, and CORE AI will assess its feasibility and market size, generating a comprehensive scorecard here.
                   </p>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {activeView === "blueprint" && (
-            <motion.div
-              key="blueprint-view"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              {isGeneratingGuidance ? (
-                <BlueprintSkeleton />
-              ) : activeGuidance ? (
-                <PrototypeEngine
-                  guidance={activeGuidance}
-                  onGenerateImage={handleGenerateImageFromMockup}
-                  isGeneratingImage={isGeneratingMockup}
-                  onAnalyzeImage={handleAnalyzeImageFromEngine}
-                  isAnalyzingImage={isAiProcessing}
-                />
-              ) : (
-                <div className="text-center p-12 max-w-md mx-auto space-y-4">
-                  <Code className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto" />
-                  <h3 className="text-base font-bold font-display text-slate-800 dark:text-slate-100">No active prototype blueprint</h3>
-                  <p className="text-xs text-slate-400 dark:text-slate-400 font-medium font-sans">
-                    Evaluate any idea first inside the scorecard view, then click the "Build Blueprint" CTA to map implementation milestones and generate visual wireframes here.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView("chat")}
+                    className="mt-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-4 h-4 text-[#00e5ff]" />
+                    <span>Return to Chat</span>
+                  </button>
                 </div>
               )}
             </motion.div>
           )}
 
           {activeView === "visuals" && (
-            <motion.div key="visuals-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div
+              key="visuals-view"
+              initial={{ opacity: 0, y: 12, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.985 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            >
               {isGeneratingMockup ? (
                 <ImageGeneratorSkeleton />
               ) : (
@@ -3221,17 +3625,28 @@ export default function App() {
                   onAnalyzeImage={handleAnalyzeImageFromEngine}
                   isGenerating={isGeneratingMockup}
                   isAnalyzing={isAiProcessing}
+                  onBackToChat={() => setActiveView("chat")}
                 />
               )}
             </motion.div>
           )}
 
           {activeView === "writer" && (
-            <motion.div key="writer-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div
+              key="writer-view"
+              initial={{ opacity: 0, y: 12, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.985 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            >
               {isWriting ? (
                 <WritingAssistantSkeleton />
               ) : (
-                <WritingAssistant onDraftDocument={handleDraftFromAssistant} isDrafting={isWriting} />
+                <WritingAssistant
+                  onDraftDocument={handleDraftFromAssistant}
+                  isDrafting={isWriting}
+                  onBackToChat={() => setActiveView("chat")}
+                />
               )}
             </motion.div>
           )}
@@ -3240,8 +3655,8 @@ export default function App() {
 
       {/* Persistent Bottom Console Input Area */}
       {activeView === "chat" && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-[#0b0f19] dark:via-[#0b0f19]/95 dark:to-transparent z-20 select-none">
-          <div className="max-w-3xl w-full mx-auto relative space-y-2">
+        <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-[#0b0f19] dark:via-[#0b0f19]/95 dark:to-transparent z-20 select-none pointer-events-none">
+          <div className="max-w-3xl w-full mx-auto relative space-y-2 pointer-events-auto">
             {/* Dynamic Animated Neon Light Wave Accent indicating active listener */}
             <div className="h-[2.5px] w-[95%] mx-auto overflow-hidden rounded-full mb-1.5 transition-all">
               <div
@@ -3256,6 +3671,50 @@ export default function App() {
                     : undefined
                 }}
               />
+            </div>
+
+            {/* Context-Aware Prompt Selector Pill & TTS Toggle on Top Bar Above Input Box */}
+            <div className="flex items-center justify-between px-1 mb-1">
+              <ContextPromptSelector
+                activeView={activeView}
+                activeMode={getActiveSession()?.activeMode || "automatic"}
+                onSelectPrompt={handleSelectContextPrompt}
+                accentColor={themeSettings.accentColor}
+                onSwitchView={(v) => {
+                  setActiveView(v);
+                  playUiSound("toggle", soundEffectsEnabled);
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setVoicePlaybackEnabled(!voicePlaybackEnabled)}
+                className={`p-1 px-2.5 rounded-full border text-[10px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs hover:scale-105 active:scale-95 shrink-0 ${
+                  isSpeaking
+                    ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
+                    : voicePlaybackEnabled
+                    ? "bg-slate-100/90 dark:bg-slate-900/90 border-cyan-500/30 text-cyan-400"
+                    : "bg-slate-100/90 dark:bg-slate-900/90 border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400"
+                }`}
+                title={voicePlaybackEnabled ? "Disable Auto Voice Synthesis" : "Enable Auto Voice Synthesis"}
+              >
+                {isSpeaking ? (
+                  <>
+                    <VoiceVisualizer barCount={8} size="xs" accentColor="#00e5ff" state="speaking" />
+                    <span className="text-cyan-300 font-extrabold uppercase">Speaking</span>
+                  </>
+                ) : voicePlaybackEnabled ? (
+                  <>
+                    <Volume2 className="w-3 h-3 text-cyan-400 animate-pulse" />
+                    <span className="text-cyan-400 font-extrabold">TTS On</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-3 h-3 text-slate-400" />
+                    <span>TTS Off</span>
+                  </>
+                )}
+              </button>
             </div>
 
             {/* Bottom Input Box Container with Dynamic Illuminating Surrounding Halo */}
@@ -3336,17 +3795,26 @@ export default function App() {
 
                           <div className="space-y-1">
                             {[
-                              { icon: "💡", label: "Analyze AI study planner SaaS", desc: "Monetization, viral loops & target domain analysis", prompt: "Analyze micro-SaaS idea for AI study planner with viral loops and revenue model" },
-                              { icon: "🚀", label: "Draft auth engine spec", desc: "JWT, OAuth2, session refresh & security architecture", prompt: "Draft technical spec for scalable auth engine with JWT, OAuth2 and session refresh" },
-                              { icon: "🎨", label: "Generate dark dashboard UI", desc: "Modern UI wireframe & layout component breakdown", prompt: "Generate UI wireframe layout for dark mode dashboard with metrics analytics" },
-                              { icon: "⚡", label: "Evaluate business model & risks", desc: "Identify key risks, unit economics & competitors", prompt: "Evaluate the unit economics, risks, and competitor advantages for my startup concept" },
+                              { icon: "🔍", label: "Analyze Problem", desc: "Debug, trace root cause & resolve technical issues", prompt: "Analyze problem: ", type: "prefix" },
+                              { icon: "💡", label: "Develop Idea", desc: "Explore market viability & feasibility matrix", prompt: "Develop idea: ", type: "prefix" },
+                              { icon: "⚖️", label: "Analyze Decision", desc: "Compare trade-offs & risk matrix", prompt: "Analyze decision: ", type: "prefix" },
+                              { icon: "🚀", label: "Build Project Blueprint", desc: "Specs, wireframes & code architecture", prompt: "Build project blueprint for: ", type: "prefix" },
+                              { icon: "📊", label: "Analyze AI Study SaaS", desc: "Monetization, viral loops & target domain analysis", prompt: "Analyze micro-SaaS idea for AI study planner with viral loops and revenue model", type: "send" },
+                              { icon: "🎨", label: "Generate UI Spec", desc: "Modern UI wireframe & layout component breakdown", prompt: "Generate UI wireframe layout for dark mode dashboard with metrics analytics", type: "send" },
                             ].map((item, idx) => (
                               <button
                                 key={idx}
                                 type="button"
                                 onClick={() => {
                                   setQuickActionsOpen(false);
-                                  handleSendMessage(undefined, item.prompt);
+                                  if (item.type === "send") {
+                                    handleSendMessage(undefined, item.prompt);
+                                  } else {
+                                    setInputText(item.prompt);
+                                    setTimeout(() => {
+                                      chatInputRef.current?.focus();
+                                    }, 50);
+                                  }
                                 }}
                                 className="w-full text-left p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer group flex items-start gap-2.5"
                               >
@@ -3418,18 +3886,21 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Voice record action icon */}
+                {/* Voice record action icon with live visualizer */}
                 <button
                   type="button"
                   onClick={handleToggleVoiceInput}
-                  className={`p-1.5 rounded-full transition-all shrink-0 cursor-pointer flex items-center justify-center ${
+                  className={`p-1.5 px-2.5 rounded-full transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5 ${
                     isListeningVoice
-                      ? "bg-rose-500 text-white animate-pulse shadow-[0_0_14px_rgba(244,63,94,0.7)]"
+                      ? "bg-rose-500 text-white shadow-[0_0_18px_rgba(244,63,94,0.8)]"
                       : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
                   }`}
                   title={isListeningVoice ? "Listening... Click to stop" : "Voice Input (Speech-to-Text)"}
                 >
-                  <Mic className="w-4 h-4" />
+                  <Mic className={`w-4 h-4 ${isListeningVoice ? "animate-pulse text-white" : ""}`} />
+                  {isListeningVoice && (
+                    <VoiceVisualizer barCount={6} size="xs" accentColor="#ffffff" state="listening" />
+                  )}
                 </button>
 
                 {/* Illuminated Send button matching active theme */}
@@ -3447,37 +3918,28 @@ export default function App() {
                 </button>
               </form>
             </div>
-
-            {/* Quick help status */}
-            <div className="flex items-center justify-between px-3 pt-1 select-none text-[9px] font-mono text-slate-400 dark:text-slate-500">
-              <div className="flex items-center gap-2 truncate pr-2">
-                <span className="truncate">{userEmail}</span>
-                <span className="hidden sm:inline">•</span>
-                <span className="hidden sm:inline">
-                  <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded font-sans text-[8px] font-bold text-slate-500 dark:text-slate-400">Ctrl+K</kbd> focus
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setVoicePlaybackEnabled(!voicePlaybackEnabled)}
-                className="text-[9px] font-mono font-bold text-slate-400 dark:text-slate-500 hover:text-cyan-500 dark:hover:text-cyan-400 flex items-center gap-1 cursor-pointer transition-colors shrink-0"
-              >
-                {voicePlaybackEnabled ? (
-                  <>
-                    <Volume2 className="w-3 h-3 text-cyan-500" />
-                    TTS On
-                  </>
-                ) : (
-                  <>
-                    <VolumeX className="w-3 h-3" />
-                    TTS Off
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       )}
+
+      {/* Floating Speaking Indicator Widget */}
+      <AnimatePresence>
+        {(isSpeaking || isListeningVoice) && (
+          <SpeakingIndicatorWidget
+            isSpeaking={isSpeaking}
+            isListening={isListeningVoice}
+            spokenTextSnippet={activeSpeakingMessageSnippet}
+            onStopSpeaking={() => {
+              if (isListeningVoice) {
+                handleToggleVoiceInput();
+              } else {
+                handleStopSpeaking();
+              }
+            }}
+            accentColor={themeSettings.accentColor}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Slides-out Sidebar drawer menu */}
       <Sidebar
@@ -3526,6 +3988,7 @@ export default function App() {
         userEmail={userEmail}
         onUpdateSessionTags={handleUpdateSessionTags}
         onOpenAutoNameSelector={handleOpenAutoNameSelector}
+        onSummarizeThread={handleSummarizeThread}
         currentLanguage={currentLanguage}
         onChangeLanguage={setCurrentLanguage}
         ownerProfile={ownerProfile}
@@ -3829,6 +4292,120 @@ export default function App() {
         />
       )}
 
+      {/* Executive Thread Summary Modal */}
+      <AnimatePresence>
+        {threadSummaryModalOpen && (
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 select-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ type: "spring", stiffness: 350, damping: 26 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-amber-500/30 dark:border-amber-500/40 relative overflow-hidden flex flex-col max-h-[88vh]"
+            >
+              {/* Gold glow top bar */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 shadow-[0_0_14px_#f59e0b]" />
+
+              {/* Modal Header */}
+              <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-2xl border border-amber-500/20 shrink-0 shadow-sm">
+                    <Sparkles className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white font-display tracking-tight flex items-center gap-2">
+                      <span>Executive Thread Summary</span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                        AI CONTEXT
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-md">
+                      {threadSummarySession?.title || "Active Chat Thread"} • {threadSummarySession?.messageCount || 0} messages
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setThreadSummaryModalOpen(false)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Content Body */}
+              <div className="my-4 flex-1 overflow-y-auto pr-1 space-y-4">
+                {isSummarizingThread ? (
+                  <div className="py-12 flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-150 dark:border-slate-800/80">
+                    <div className="p-3 bg-amber-500/10 text-amber-500 rounded-full animate-bounce">
+                      <Sparkles className="w-6 h-6 text-amber-500" />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                      <span>Synthesizing Executive Chat Thread Summary with Gemini AI...</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center max-w-xs">
+                      Extracting key takeaways, technical decisions, and action items for instant context switching.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 sm:p-5 bg-slate-50/80 dark:bg-slate-950/70 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs sm:text-sm leading-relaxed font-sans select-text">
+                    <div className="markdown-body">
+                      <Markdown>{threadSummaryText}</Markdown>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer Actions */}
+              {!isSummarizingThread && threadSummaryText && (
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyThreadSummary}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {threadSummaryCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>Copied Summary!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Copy Summary</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadThreadSummary}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Download .md</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleInsertSummaryIntoChat}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 transition-all shadow-md shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-slate-950" />
+                      <span>Insert Summary into Chat</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Owner Info Modal (Read-Only) */}
       <OwnerInfoModal
         isOpen={profileModalOpen}
@@ -3881,6 +4458,66 @@ export default function App() {
                 CORE AI learned your details ({userProfile.name || "User"}) & updated personalization settings.
               </p>
             </div>
+          </motion.div>
+        )}
+
+        {/* Global Floating AI Speaking Indicator & Mute Control Widget */}
+        {isSpeaking && (
+          <motion.div
+            initial={{ opacity: 0, y: 25, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 25, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 420, damping: 26 }}
+            className="fixed top-16 sm:top-18 right-3 sm:right-6 z-50 flex items-center gap-3 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-slate-900/95 dark:bg-slate-950/95 text-white backdrop-blur-2xl border border-cyan-400/60 rounded-2xl shadow-2xl shadow-cyan-500/25 max-w-[calc(100vw-1.5rem)] select-none ring-1 ring-cyan-500/30"
+          >
+            {/* Animated Equalizer Waveform */}
+            <div className="flex items-center gap-1 h-5 px-1 shrink-0">
+              <motion.span
+                animate={{ height: ["4px", "18px", "6px", "16px", "4px"] }}
+                transition={{ repeat: Infinity, duration: 0.7, ease: "easeInOut" }}
+                className="w-1 bg-[#00e5ff] rounded-full shadow-[0_0_8px_#00e5ff]"
+              />
+              <motion.span
+                animate={{ height: ["14px", "4px", "18px", "8px", "14px"] }}
+                transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut", delay: 0.1 }}
+                className="w-1 bg-cyan-400 rounded-full shadow-[0_0_8px_#22d3ee]"
+              />
+              <motion.span
+                animate={{ height: ["6px", "16px", "4px", "18px", "6px"] }}
+                transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut", delay: 0.2 }}
+                className="w-1 bg-[#00e5ff] rounded-full shadow-[0_0_8px_#00e5ff]"
+              />
+              <motion.span
+                animate={{ height: ["16px", "6px", "12px", "4px", "16px"] }}
+                transition={{ repeat: Infinity, duration: 0.65, ease: "easeInOut", delay: 0.15 }}
+                className="w-1 bg-cyan-300 rounded-full"
+              />
+            </div>
+
+            {/* Speaking Info Label */}
+            <div className="flex flex-col min-w-0 pr-1">
+              <span className="text-[11px] font-mono font-bold text-[#00e5ff] flex items-center gap-1.5 leading-tight">
+                <Volume2 className="w-3.5 h-3.5 text-[#00e5ff] animate-pulse" />
+                <span>AI Speaking...</span>
+              </span>
+              <span className="text-[10px] text-slate-300 font-sans truncate max-w-[110px] sm:max-w-[170px]">
+                Audio voice active
+              </span>
+            </div>
+
+            {/* Direct Mute / Stop Button */}
+            <button
+              type="button"
+              onClick={() => {
+                playUiSound("toggle", soundEffectsEnabled);
+                handleStopSpeaking();
+              }}
+              className="px-3 py-1.5 bg-rose-500/25 hover:bg-rose-500/40 text-rose-100 border border-rose-500/60 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-md shrink-0"
+              title="Click to Mute AI Voice (Stop Audio)"
+            >
+              <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+              <span className="font-mono text-xs font-bold text-rose-100">Mute Voice</span>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

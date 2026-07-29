@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { PrototypeGuidance } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Code, CheckSquare, Square, Layers, Layout, Clock, Sparkles, Image, RefreshCw, Download, Copy, Check } from "lucide-react";
+import { Code, CheckSquare, Square, Layers, Layout, Clock, Sparkles, Image, RefreshCw, Download, Copy, Check, ArrowLeft, Kanban } from "lucide-react";
 import ImageGenerator from "./ImageGenerator";
+import MilestoneTimeline from "./MilestoneTimeline";
 
 interface PrototypeEngineProps {
   guidance: PrototypeGuidance;
@@ -10,6 +11,7 @@ interface PrototypeEngineProps {
   isGeneratingImage?: boolean;
   onAnalyzeImage?: (payload: { base64Data: string; mimeType: string; prompt: string }) => Promise<string>;
   isAnalyzingImage?: boolean;
+  onBackToChat?: () => void;
 }
 
 export default function PrototypeEngine({
@@ -18,6 +20,7 @@ export default function PrototypeEngine({
   isGeneratingImage = false,
   onAnalyzeImage,
   isAnalyzingImage = false,
+  onBackToChat,
 }: PrototypeEngineProps) {
   // Let the user keep track of completed steps!
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -61,8 +64,28 @@ export default function PrototypeEngine({
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="w-full max-w-3xl mx-auto space-y-6 p-4 md:p-6"
+      className="w-full max-w-3xl mx-auto space-y-4 p-4 md:p-6"
     >
+      {/* Top Back Navigation Toolbar */}
+      <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-xs">
+        {onBackToChat ? (
+          <button
+            type="button"
+            onClick={onBackToChat}
+            className="px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer active:scale-95 shadow-sm"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#00e5ff]" />
+            <span className="font-sans font-bold">← Back to Chat</span>
+          </button>
+        ) : (
+          <span className="text-xs font-mono font-bold text-slate-400">Prototype Studio</span>
+        )}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono tracking-widest text-cyan-500 uppercase font-bold px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+            Prototype Blueprint
+          </span>
+        </div>
+      </div>
       {/* Title & Stats */}
       <div className="bento-card rounded-2xl p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 relative overflow-hidden">
         <span className="text-xs font-mono tracking-widest text-[#00e5ff] uppercase font-bold neon-text-glow">
@@ -243,6 +266,13 @@ export default function PrototypeEngine({
           </AnimatePresence>
         </div>
       </div>
+
+      {/* INTERACTIVE MILESTONE TIMELINE ENGINE */}
+      <MilestoneTimeline
+        steps={guidance.steps}
+        completedStepNumbers={completedSteps}
+        onStepToggle={toggleStep}
+      />
 
       {/* PROTOTYPE VISUALS & IMAGE GENERATOR ENGINE SECTION */}
       <div className="bento-card rounded-2xl p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 space-y-5">

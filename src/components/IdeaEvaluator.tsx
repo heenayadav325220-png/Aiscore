@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { IdeaEvaluation } from "../types";
-import { CheckCircle, XCircle, Award, Target, Zap, ArrowRight, ShieldCheck, AlertTriangle, Lightbulb, TrendingUp, Download, FileJson, Printer, RefreshCw } from "lucide-react";
+import { FileText, CheckCircle, XCircle, Award, Target, Zap, ArrowRight, ShieldCheck, AlertTriangle, Lightbulb, TrendingUp, Download, FileJson, Printer, RefreshCw, ArrowLeft } from "lucide-react";
 import { motion, useMotionValue, animate } from "motion/react";
-import { exportEvaluationToHtml, exportEvaluationToJson } from "../lib/exportUtils";
+import { exportEvaluationToPdf } from "../lib/exportUtils";
 
 interface IdeaEvaluatorProps {
   evaluation: IdeaEvaluation;
   onGenerateGuidance: (idea: string, title: string) => void;
   isGeneratingGuidance: boolean;
+  onBackToChat?: () => void;
 }
 
 function AnimatedScore({ value, className }: { value: number; className?: string }) {
@@ -33,6 +34,7 @@ export default function IdeaEvaluator({
   evaluation,
   onGenerateGuidance,
   isGeneratingGuidance,
+  onBackToChat,
 }: IdeaEvaluatorProps) {
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-emerald-500";
@@ -51,8 +53,28 @@ export default function IdeaEvaluator({
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="w-full max-w-3xl mx-auto space-y-6 p-4 md:p-6"
+      className="w-full max-w-3xl mx-auto space-y-4 p-4 md:p-6"
     >
+      {/* Top Back Navigation Toolbar */}
+      <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-xs">
+        {onBackToChat ? (
+          <button
+            type="button"
+            onClick={onBackToChat}
+            className="px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer active:scale-95 shadow-sm"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#00e5ff]" />
+            <span className="font-sans font-bold">← Back to Chat</span>
+          </button>
+        ) : (
+          <span className="text-xs font-mono font-bold text-slate-400">Viability Scorecard</span>
+        )}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono tracking-widest text-cyan-500 uppercase font-bold px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+            Viability Evaluator
+          </span>
+        </div>
+      </div>
       {/* Export Bar Option Card */}
       <div id="scorecard-export-toolbar" className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm">
         <div className="flex items-center gap-2">
@@ -66,21 +88,12 @@ export default function IdeaEvaluator({
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
-            id="btn-export-scorecard-json"
-            onClick={() => exportEvaluationToJson(evaluation)}
-            className="flex-1 sm:flex-initial px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-            title="Download Raw JSON backup"
-          >
-            <FileJson className="w-3.5 h-3.5 text-slate-500" />
-            JSON Data
-          </button>
-          <button
             id="btn-export-scorecard-pdf"
-            onClick={() => exportEvaluationToHtml(evaluation)}
+            onClick={() => exportEvaluationToPdf(evaluation)}
             className="flex-1 sm:flex-initial px-4 py-2 bg-[#00e5ff] text-slate-950 font-bold text-[11px] rounded-lg hover:bg-[#00b0ff] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(0,229,255,0.25)]"
-            title="Generate print-friendly HTML/PDF document"
+            title="Export stylized PDF document"
           >
-            <Printer className="w-3.5 h-3.5 text-slate-950" />
+            <FileText className="w-3.5 h-3.5 text-slate-950" />
             PDF Report
           </button>
         </div>

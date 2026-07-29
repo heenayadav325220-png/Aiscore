@@ -1,12 +1,13 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Image, Sparkles, Upload, FileSearch, ArrowRight, RefreshCw, ZoomIn } from "lucide-react";
+import { Image, Sparkles, Upload, FileSearch, ArrowRight, RefreshCw, ZoomIn, ArrowLeft } from "lucide-react";
 
 interface ImageGeneratorProps {
   onGenerateImage: (prompt: string, aspectRatio: string) => Promise<string>;
   onAnalyzeImage: (payload: { base64Data: string; mimeType: string; prompt: string }) => Promise<string>;
   isGenerating: boolean;
   isAnalyzing: boolean;
+  onBackToChat?: () => void;
 }
 
 const RATIOS = [
@@ -28,6 +29,7 @@ export default function ImageGenerator({
   onAnalyzeImage,
   isGenerating,
   isAnalyzing,
+  onBackToChat,
 }: ImageGeneratorProps) {
   // Tabs: 'generate' or 'analyze'
   const [activeTab, setActiveTab] = useState<"generate" | "analyze">("generate");
@@ -122,7 +124,27 @@ export default function ImageGenerator({
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-6 p-4 md:p-6">
+    <div className="w-full max-w-3xl mx-auto space-y-4 p-4 md:p-6">
+      {/* Top Back Navigation Toolbar */}
+      <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-xs">
+        {onBackToChat ? (
+          <button
+            type="button"
+            onClick={onBackToChat}
+            className="px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer active:scale-95 shadow-sm"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#00e5ff]" />
+            <span className="font-sans font-bold">← Back to Chat</span>
+          </button>
+        ) : (
+          <span className="text-xs font-mono font-bold text-slate-400">Visual Studio</span>
+        )}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono tracking-widest text-cyan-500 uppercase font-bold px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+            Image Generator & Visuals
+          </span>
+        </div>
+      </div>
       {/* Tab Switcher */}
       <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full">
         <button
@@ -163,7 +185,7 @@ export default function ImageGenerator({
             <form onSubmit={handleGenerate} className="md:col-span-5 space-y-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-slate-400 font-mono tracking-wider block">
-                  Describe mockup concept
+                  Describe visual concept
                 </label>
                 <textarea
                   value={generatePrompt}
@@ -209,7 +231,7 @@ export default function ImageGenerator({
                   </span>
                 ) : (
                   <>
-                    Generate Mockup
+                    Generate Visual Asset
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -227,7 +249,7 @@ export default function ImageGenerator({
                     <div className="p-1 rounded-2xl border border-slate-100 max-w-sm mx-auto overflow-hidden bg-slate-50 shadow-inner">
                       <img
                         src={generatedUrl}
-                        alt="AI Generated Prototype Mockup"
+                        alt="AI Generated Visual Asset"
                         referrerPolicy="no-referrer"
                         className="rounded-xl w-full h-auto max-h-[260px] object-contain transition-transform hover:scale-[1.02]"
                       />
@@ -246,7 +268,7 @@ export default function ImageGenerator({
                 ) : (
                   <div className="text-center p-6 bg-slate-50/50 rounded-lg border border-dashed border-slate-100 w-full flex flex-col items-center justify-center h-full min-h-[280px]">
                     <Image className="w-10 h-10 text-slate-300 animate-pulse mb-3" />
-                    <h4 className="text-xs font-bold text-slate-600 font-display">No mockup generated yet</h4>
+                    <h4 className="text-xs font-bold text-slate-600 font-display">No visual asset generated yet</h4>
                     <p className="text-[11px] text-slate-400 mt-1 max-w-xs leading-normal">
                       Write a detailed description and trigger synthesis to generate immediate high-precision UI wireframe images.
                     </p>

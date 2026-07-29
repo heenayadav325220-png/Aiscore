@@ -17,7 +17,8 @@ import {
   PieChart,
   BarChart3,
   Layers,
-  Award
+  Award,
+  ArrowLeft
 } from "lucide-react";
 import { MarketAnalysisReport } from "../types";
 import { downloadMarketAnalysisPDF } from "../utils/pdfGenerator";
@@ -183,6 +184,16 @@ export const MarketAnalysisModal: React.FC<MarketAnalysisModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-sm"
+              title="Return to Chat Console"
+            >
+              <ArrowLeft className="w-4 h-4 text-[#00e5ff]" />
+              <span>← Back to Chat</span>
+            </button>
+
             <button
               type="button"
               onClick={handleExportPDF}

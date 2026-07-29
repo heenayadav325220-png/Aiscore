@@ -1,4 +1,5 @@
 import { ChatSession, IdeaEvaluation } from "../types";
+import { jsPDF } from "jspdf";
 
 /**
  * Triggers a client-side file download.
@@ -411,3 +412,457 @@ export function exportEvaluationToHtml(evaluation: IdeaEvaluation) {
   const safeFileName = evaluation.title.replace(/[^a-z0-9]/gi, "_").toLowerCase().slice(0, 30);
   downloadFile(htmlContent, `scorecard_${safeFileName || "evaluation"}.html`, "text/html");
 }
+
+/**
+ * Exports a Chat Session directly to a high-precision, professionally styled PDF document using jsPDF.
+ */
+export function exportChatToPdf(session: ChatSession) {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth(); // ~210 mm
+  const pageHeight = doc.internal.pageSize.getHeight(); // ~297 mm
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2; // ~182 mm
+
+  let currentY = margin;
+
+  // Helper to trigger page break if space is insufficient
+  const checkPageBreak = (neededHeight: number) => {
+    if (currentY + neededHeight > pageHeight - 18) {
+      doc.addPage();
+      currentY = margin;
+      drawHeaderBanner(false);
+    }
+  };
+
+  const drawHeaderBanner = (isFirstPage: boolean) => {
+    if (isFirstPage) {
+      // Dark Header Banner
+      doc.setFillColor(11, 15, 25); // #0b0f19
+      doc.rect(margin, currentY, contentWidth, 26, "F");
+
+      // Cyan accent left border strip
+      doc.setFillColor(0, 229, 255); // #00e5ff
+      doc.rect(margin, currentY, 3, 26, "F");
+
+      // Title Branding
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("ASCEND STUDY • CORE AI", margin + 7, currentY + 9);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(0, 229, 255);
+      doc.text("EXECUTIVE CHAT THREAD & BRAINSTORMING DOSSIER", margin + 7, currentY + 16);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, margin + 7, currentY + 22);
+
+      currentY += 30;
+
+      // Metadata Info Box
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(margin, currentY, contentWidth, 18, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(15, 23, 42);
+      const safeTitle = session.title.length > 55 ? session.title.slice(0, 55) + "..." : session.title;
+      doc.text(`Topic: ${safeTitle}`, margin + 5, currentY + 6.5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(
+        `Mode: ${session.activeMode.toUpperCase()}   |   Messages: ${session.messages.length}   |   Owner: Rohit (ASCEND STUDY Class 11th)`,
+        margin + 5,
+        currentY + 13
+      );
+
+      currentY += 24;
+    } else {
+      // Compact page header for subsequent pages
+      doc.setFillColor(11, 15, 25);
+      doc.rect(margin, currentY, contentWidth, 9, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(0, 229, 255);
+      doc.text("ASCEND STUDY • CORE AI CHAT THREAD (CONTINUED)", margin + 5, currentY + 6);
+
+      currentY += 13;
+    }
+  };
+
+  drawHeaderBanner(true);
+
+  // Render each chat message cleanly
+  session.messages.forEach((msg, idx) => {
+    const isUser = msg.role === "user";
+    const senderName = isUser ? "YOU (USER)" : "CORE AI SYNTHESIZER";
+    const timeStr = msg.timestamp || "";
+
+    const headerHeight = 7.5;
+    const innerMargin = margin + 3;
+    const bodyWidth = contentWidth - 6;
+
+    checkPageBreak(headerHeight + 10);
+
+    // Message Header Bar
+    if (isUser) {
+      doc.setFillColor(30, 41, 59); // slate-800
+      doc.setDrawColor(51, 65, 85);
+    } else {
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.setDrawColor(6, 182, 212); // cyan-500
+    }
+
+    doc.rect(margin, currentY, contentWidth, headerHeight, "FD");
+
+    // Dot indicator
+    if (isUser) {
+      doc.setFillColor(148, 163, 184);
+    } else {
+      doc.setFillColor(0, 229, 255);
+    }
+    doc.circle(margin + 4, currentY + 3.8, 1.4, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(senderName, margin + 8, currentY + 5);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    const timeWidth = doc.getTextWidth(timeStr);
+    doc.text(timeStr, margin + contentWidth - timeWidth - 4, currentY + 5);
+
+    currentY += headerHeight;
+
+    // Split text into paragraphs/lines and code blocks
+    const lines = msg.text.split("\n");
+    let inCodeBlock = false;
+    let codeLines: string[] = [];
+
+    const renderCodeBlock = () => {
+      if (codeLines.length === 0) return;
+      const fullCode = codeLines.join("\n");
+      const wrappedCode = doc.splitTextToSize(fullCode, bodyWidth - 6);
+      const codeHeight = wrappedCode.length * 3.6 + 6;
+
+      checkPageBreak(codeHeight + 3);
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.rect(innerMargin, currentY + 2, bodyWidth, codeHeight, "FD");
+
+      doc.setFont("courier", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(30, 41, 59);
+
+      let cy = currentY + 6;
+      wrappedCode.forEach((cline: string) => {
+        doc.text(cline, innerMargin + 4, cy);
+        cy += 3.6;
+      });
+
+      currentY += codeHeight + 3;
+      codeLines = [];
+    };
+
+    lines.forEach((line) => {
+      if (line.trim().startsWith("```")) {
+        if (inCodeBlock) {
+          renderCodeBlock();
+          inCodeBlock = false;
+        } else {
+          inCodeBlock = true;
+        }
+        return;
+      }
+
+      if (inCodeBlock) {
+        codeLines.push(line);
+        return;
+      }
+
+      const cleanText = line.replace(/\*\*/g, "").replace(/`/g, "");
+      if (!cleanText.trim()) {
+        currentY += 2;
+        return;
+      }
+
+      const wrappedLines = doc.splitTextToSize(cleanText, bodyWidth);
+      const blockHeight = wrappedLines.length * 4;
+
+      checkPageBreak(blockHeight + 2);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+
+      wrappedLines.forEach((wline: string) => {
+        doc.text(wline, innerMargin, currentY + 3.8);
+        currentY += 4;
+      });
+    });
+
+    if (inCodeBlock) {
+      renderCodeBlock();
+    }
+
+    if (msg.imageAttached) {
+      checkPageBreak(6);
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7.5);
+      doc.setTextColor(6, 182, 212);
+      doc.text(`[Attached Image: ${msg.imageAttached.mimeType}]`, innerMargin, currentY + 3.5);
+      currentY += 5;
+    }
+
+    if (msg.reactions && msg.reactions.length > 0) {
+      checkPageBreak(6);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Reactions: ${msg.reactions.join(" ")}`, innerMargin, currentY + 3.5);
+      currentY += 5;
+    }
+
+    currentY += 6; // Spacing between messages
+  });
+
+  // Footer for all pages
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFillColor(241, 245, 249);
+    doc.rect(margin, pageHeight - 11, contentWidth, 7, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text("ASCEND STUDY • CORE AI — STYLIZED CHAT EXPORT DOSSIER", margin + 4, pageHeight - 6.5);
+
+    const pageStr = `Page ${p} of ${totalPages}`;
+    const pWidth = doc.getTextWidth(pageStr);
+    doc.text(pageStr, margin + contentWidth - pWidth - 4, pageHeight - 6.5);
+  }
+
+  const safeFileName = session.title.replace(/[^a-z0-9]/gi, "_").toLowerCase().slice(0, 30);
+  doc.save(`core_chat_${safeFileName || "session"}.pdf`);
+}
+
+/**
+ * Exports an Idea Evaluation Scorecard directly to a high-precision, professionally styled PDF document.
+ */
+export function exportEvaluationToPdf(evaluation: IdeaEvaluation) {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+
+  let currentY = margin;
+
+  // Header Banner
+  doc.setFillColor(11, 15, 25);
+  doc.rect(margin, currentY, contentWidth, 26, "F");
+
+  doc.setFillColor(0, 229, 255);
+  doc.rect(margin, currentY, 3, 26, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text("ASCEND STUDY • CORE AI SCORECARD", margin + 7, currentY + 9);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 229, 255);
+  doc.text("PROTOTYPE VIABILITY & CONCEPT ASSESSMENT REPORT", margin + 7, currentY + 16);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Generated: ${evaluation.timestamp || new Date().toLocaleDateString()}`, margin + 7, currentY + 22);
+
+  currentY += 32;
+
+  // Verdict Card Box
+  const verdictBg = evaluation.approved ? [240, 253, 244] : [254, 242, 242];
+  const verdictBorder = evaluation.approved ? [187, 247, 208] : [254, 202, 202];
+  doc.setFillColor(verdictBg[0], verdictBg[1], verdictBg[2]);
+  doc.setDrawColor(verdictBorder[0], verdictBorder[1], verdictBorder[2]);
+  doc.rect(margin, currentY, contentWidth, 24, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  const safeTitle = evaluation.title.length > 50 ? evaluation.title.slice(0, 50) + "..." : evaluation.title;
+  doc.text(safeTitle, margin + 5, currentY + 8);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  const safeSummaryLines = doc.splitTextToSize(evaluation.summary, contentWidth - 40);
+  doc.text(safeSummaryLines.slice(0, 2), margin + 5, currentY + 14);
+
+  // Overall Score Badge
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  if (evaluation.overallScore >= 80) doc.setTextColor(16, 185, 129);
+  else if (evaluation.overallScore >= 60) doc.setTextColor(245, 158, 11);
+  else doc.setTextColor(244, 63, 94);
+
+  doc.text(`${evaluation.overallScore}/100`, margin + contentWidth - 32, currentY + 12);
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.text("OVERALL SCORE", margin + contentWidth - 32, currentY + 17);
+
+  currentY += 30;
+
+  // Raw Concept Pitch
+  doc.setFillColor(15, 23, 42);
+  doc.rect(margin, currentY, contentWidth, 16, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(0, 229, 255);
+  doc.text("PROJECT CONCEPT", margin + 5, currentY + 5);
+
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(8);
+  doc.setTextColor(226, 232, 240);
+  const ideaLines = doc.splitTextToSize(`"${evaluation.idea}"`, contentWidth - 10);
+  doc.text(ideaLines.slice(0, 2), margin + 5, currentY + 11);
+
+  currentY += 22;
+
+  // Score Metrics Grid (Feasibility, Market Potential, Uniqueness)
+  const colWidth = (contentWidth - 8) / 3;
+
+  const renderMetric = (x: number, title: string, score: number, sub: string) => {
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(x, currentY, colWidth, 20, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(title, x + 4, currentY + 6);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    if (score >= 80) doc.setTextColor(16, 185, 129);
+    else if (score >= 60) doc.setTextColor(245, 158, 11);
+    else doc.setTextColor(244, 63, 94);
+
+    doc.text(`${score}`, x + 4, currentY + 14);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text("/100", x + 18, currentY + 14);
+  };
+
+  renderMetric(margin, "FEASIBILITY", evaluation.feasibilityScore, "Tech Viability");
+  renderMetric(margin + colWidth + 4, "MARKET POTENTIAL", evaluation.marketPotentialScore, "Monetization");
+  renderMetric(margin + (colWidth + 4) * 2, "UNIQUENESS", evaluation.innovationScore, "Novelty");
+
+  currentY += 26;
+
+  // Strengths & Weaknesses
+  const halfWidth = (contentWidth - 6) / 2;
+
+  // Key Advantages
+  doc.setFillColor(240, 253, 244);
+  doc.setDrawColor(187, 247, 208);
+  doc.rect(margin, currentY, halfWidth, 34, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(22, 101, 52);
+  doc.text("KEY ADVANTAGES", margin + 4, currentY + 6);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 41, 59);
+  let sy = currentY + 12;
+  evaluation.strengths.slice(0, 4).forEach((s) => {
+    const slines = doc.splitTextToSize(`• ${s}`, halfWidth - 8);
+    doc.text(slines[0], margin + 4, sy);
+    sy += 5;
+  });
+
+  // Execution Hurdles
+  doc.setFillColor(254, 242, 242);
+  doc.setDrawColor(254, 202, 202);
+  doc.rect(margin + halfWidth + 6, currentY, halfWidth, 34, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(153, 27, 27);
+  doc.text("EXECUTION HURDLES", margin + halfWidth + 10, currentY + 6);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 41, 59);
+  let wy = currentY + 12;
+  evaluation.weaknesses.slice(0, 4).forEach((w) => {
+    const wlines = doc.splitTextToSize(`• ${w}`, halfWidth - 8);
+    doc.text(wlines[0], margin + halfWidth + 10, wy);
+    wy += 5;
+  });
+
+  currentY += 40;
+
+  // Recommendations
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(margin, currentY, contentWidth, 28, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text("ACTIONABLE RECOMMENDATIONS", margin + 5, currentY + 6);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(51, 65, 85);
+
+  let ry = currentY + 12;
+  evaluation.recommendations.slice(0, 3).forEach((rec, idx) => {
+    const rlines = doc.splitTextToSize(`${idx + 1}. ${rec}`, contentWidth - 10);
+    doc.text(rlines[0], margin + 5, ry);
+    ry += 5.2;
+  });
+
+  // Footer
+  doc.setFillColor(241, 245, 249);
+  doc.rect(margin, pageHeight - 11, contentWidth, 7, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.text("ASCEND STUDY • CORE AI — CONFIDENTIAL SCORECARD REPORT", margin + 4, pageHeight - 6.5);
+  doc.text("Page 1 of 1", margin + contentWidth - 20, pageHeight - 6.5);
+
+  const safeFileName = evaluation.title.replace(/[^a-z0-9]/gi, "_").toLowerCase().slice(0, 30);
+  doc.save(`scorecard_${safeFileName || "evaluation"}.pdf`);
+}
+

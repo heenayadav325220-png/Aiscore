@@ -4,8 +4,8 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api"
+      "source": "/api/(.GEMINI_API_KEY*)",
+      "destination": "/api"=(AQ.Ab8RN6IXDSBiCZogOH5iCuXLpl4TzJKjqGtVWUHSRzb-KK44aw)
     }
   ]
 }

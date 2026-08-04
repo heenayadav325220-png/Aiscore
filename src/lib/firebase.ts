@@ -36,7 +36,11 @@ export function subscribeChatSessions(onUpdate: (sessions: ChatSession[]) => voi
         sessions.push(docSnap.data() as ChatSession);
       });
       // Sort sessions by timestamp descending (newest first)
-      sessions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      sessions.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime() || 0;
+        const timeB = new Date(b.timestamp).getTime() || 0;
+        return timeB - timeA;
+      });
       onUpdate(sessions);
     },
     (error) => {
@@ -89,7 +93,11 @@ export function subscribeIdeas(onUpdate: (ideas: IdeaEvaluation[]) => void) {
       snapshot.forEach((docSnap) => {
         ideas.push(docSnap.data() as IdeaEvaluation);
       });
-      ideas.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      ideas.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime() || 0;
+        const timeB = new Date(b.timestamp).getTime() || 0;
+        return timeB - timeA;
+      });
       onUpdate(ideas);
     },
     (error) => {
@@ -122,7 +130,11 @@ export function subscribeGuidance(onUpdate: (guidanceList: PrototypeGuidance[]) 
       snapshot.forEach((docSnap) => {
         list.push(docSnap.data() as PrototypeGuidance);
       });
-      list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      list.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime() || 0;
+        const timeB = new Date(b.timestamp).getTime() || 0;
+        return timeB - timeA;
+      });
       onUpdate(list);
     },
     (error) => {

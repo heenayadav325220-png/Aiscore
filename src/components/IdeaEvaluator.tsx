@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { IdeaEvaluation } from "../types";
 import { FileText, CheckCircle, XCircle, Award, Target, Zap, ArrowRight, ShieldCheck, AlertTriangle, Lightbulb, TrendingUp, Download, FileJson, Printer, RefreshCw, ArrowLeft } from "lucide-react";
-import { motion, useMotionValue, animate } from "motion/react";
+import { motion, useMotionValue, animate, Variants } from "motion/react";
 import { exportEvaluationToPdf } from "../lib/exportUtils";
 
 interface IdeaEvaluatorProps {
@@ -30,6 +30,31 @@ function AnimatedScore({ value, className }: { value: number; className?: string
   return <span className={className}>{displayValue}</span>;
 }
 
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 18, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 350,
+      damping: 25,
+    },
+  },
+};
+
 export default function IdeaEvaluator({
   evaluation,
   onGenerateGuidance,
@@ -50,13 +75,16 @@ export default function IdeaEvaluator({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
       className="w-full max-w-3xl mx-auto space-y-4 p-4 md:p-6"
     >
       {/* Top Back Navigation Toolbar */}
-      <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-xs">
+      <motion.div
+        variants={itemVariants}
+        className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-xs"
+      >
         {onBackToChat ? (
           <button
             type="button"
@@ -74,9 +102,14 @@ export default function IdeaEvaluator({
             Viability Evaluator
           </span>
         </div>
-      </div>
+      </motion.div>
+
       {/* Export Bar Option Card */}
-      <div id="scorecard-export-toolbar" className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm">
+      <motion.div
+        variants={itemVariants}
+        id="scorecard-export-toolbar"
+        className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-slate-100 rounded-xl p-3.5 shadow-sm"
+      >
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-cyan-50 rounded-lg text-cyan-600">
             <Download className="w-4 h-4" />
@@ -97,10 +130,13 @@ export default function IdeaEvaluator({
             PDF Report
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Top Evaluation Result Card */}
-      <div className="bento-card rounded-2xl p-6 relative overflow-hidden bg-white border border-slate-100">
+      <motion.div
+        variants={itemVariants}
+        className="bento-card rounded-2xl p-6 relative overflow-hidden bg-white border border-slate-100"
+      >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 z-10 relative">
           <div>
             <span className="text-xs font-mono tracking-widest text-slate-400 uppercase">Global-Level Verdict</span>
@@ -137,12 +173,12 @@ export default function IdeaEvaluator({
             evaluation.approved ? "bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" : "bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]"
           }`}
         />
-      </div>
+      </motion.div>
 
-      {/* Grid of Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Grid of Metric Cards with Staggered Animations */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Feasibility */}
-        <div className="bento-card rounded-xl p-5 bg-white">
+        <motion.div variants={itemVariants} className="bento-card rounded-xl p-5 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">Feasibility</span>
             <Zap className="w-4 h-4 text-amber-500" />
@@ -163,10 +199,10 @@ export default function IdeaEvaluator({
             />
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-mono">Technical viability & implementation effort.</p>
-        </div>
+        </motion.div>
 
         {/* Market Potential */}
-        <div className="bento-card rounded-xl p-5 bg-white">
+        <motion.div variants={itemVariants} className="bento-card rounded-xl p-5 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">Market Potential</span>
             <Target className="w-4 h-4 text-[#00e5ff]" />
@@ -187,10 +223,10 @@ export default function IdeaEvaluator({
             />
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-mono">Monetization, scaling & growth vector.</p>
-        </div>
+        </motion.div>
 
         {/* Innovation */}
-        <div className="bento-card rounded-xl p-5 bg-white">
+        <motion.div variants={itemVariants} className="bento-card rounded-xl p-5 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">Uniqueness</span>
             <Award className="w-4 h-4 text-purple-500" />
@@ -211,11 +247,11 @@ export default function IdeaEvaluator({
             />
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-mono">Novelty, competitive edge & disruption.</p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Strengths & Weaknesses Split Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Strengths */}
         <div className="bento-card rounded-xl p-5 bg-white border-l-4 border-l-emerald-500">
           <div className="flex items-center gap-2 mb-3">
@@ -224,10 +260,16 @@ export default function IdeaEvaluator({
           </div>
           <ul className="space-y-2.5">
             {evaluation.strengths.map((strength, i) => (
-              <li key={i} className="text-xs text-slate-600 flex items-start gap-2 leading-relaxed">
+              <motion.li
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 + i * 0.05 }}
+                className="text-xs text-slate-600 flex items-start gap-2 leading-relaxed"
+              >
                 <span className="text-emerald-500 font-bold font-mono mt-0.5">•</span>
                 <span>{strength}</span>
-              </li>
+              </motion.li>
             ))}
           </ul>
         </div>
@@ -240,43 +282,58 @@ export default function IdeaEvaluator({
           </div>
           <ul className="space-y-2.5">
             {evaluation.weaknesses.map((weakness, i) => (
-              <li key={i} className="text-xs text-slate-600 flex items-start gap-2 leading-relaxed">
+              <motion.li
+                key={i}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 + i * 0.05 }}
+                className="text-xs text-slate-600 flex items-start gap-2 leading-relaxed"
+              >
                 <span className="text-rose-500 font-bold font-mono mt-0.5">•</span>
                 <span>{weakness}</span>
-              </li>
+              </motion.li>
             ))}
           </ul>
         </div>
-      </div>
+      </motion.div>
 
       {/* Market analysis */}
-      <div className="bento-card rounded-xl p-5 bg-white">
+      <motion.div variants={itemVariants} className="bento-card rounded-xl p-5 bg-white">
         <div className="flex items-center gap-2 mb-2.5">
           <TrendingUp className="w-4 h-4 text-[#00e5ff]" />
           <h3 className="text-sm font-bold uppercase tracking-wider font-display text-slate-800">Market Size & Landscape</h3>
         </div>
         <p className="text-xs text-slate-600 leading-relaxed font-sans">{evaluation.marketSizeAnalysis}</p>
-      </div>
+      </motion.div>
 
       {/* Recommendations */}
-      <div className="bento-card rounded-xl p-5 bg-white relative">
+      <motion.div variants={itemVariants} className="bento-card rounded-xl p-5 bg-white relative">
         <div className="flex items-center gap-2 mb-3">
           <Lightbulb className="w-4 h-4 text-amber-500" />
           <h3 className="text-sm font-bold uppercase tracking-wider font-display text-slate-800">Actionable Next Steps</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {evaluation.recommendations.map((rec, i) => (
-            <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col justify-between">
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + i * 0.08 }}
+              className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col justify-between"
+            >
               <span className="text-[10px] font-mono text-slate-400 font-semibold mb-1">0{i + 1}. RECOMMENDATION</span>
               <p className="text-xs text-slate-600 font-sans leading-relaxed">{rec}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Auto-Pivot Recommendations (Highlighted for Rejected / Critical Score < 50) */}
+      {/* Auto-Pivot Recommendations */}
       {(evaluation.pivotRecommendations && evaluation.pivotRecommendations.length > 0) || !evaluation.approved ? (
-        <div className="bento-card rounded-xl p-5 bg-gradient-to-br from-slate-900 to-slate-950 text-white border-2 border-cyan-500/50 shadow-[0_0_20px_rgba(0,229,255,0.15)] relative overflow-hidden">
+        <motion.div
+          variants={itemVariants}
+          className="bento-card rounded-xl p-5 bg-gradient-to-br from-slate-900 to-slate-950 text-white border-2 border-cyan-500/50 shadow-[0_0_20px_rgba(0,229,255,0.15)] relative overflow-hidden"
+        >
           <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-cyan-500/20 rounded-lg border border-cyan-400/40 text-[#00e5ff]">
@@ -305,15 +362,21 @@ export default function IdeaEvaluator({
                   "Focus exclusively on high-retention automation tools before expanding into a full suite."
                 ]
             ).map((pivot, i) => (
-              <div key={i} className="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex items-start gap-3 hover:border-cyan-500/50 transition-colors">
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -15 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.35 + i * 0.08 }}
+                className="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex items-start gap-3 hover:border-cyan-500/50 transition-colors"
+              >
                 <span className="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[#00e5ff] flex items-center justify-center font-mono font-bold text-xs shrink-0 mt-0.5">
                   P{i + 1}
                 </span>
                 <p className="text-xs text-slate-200 leading-relaxed font-sans">{pivot}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
       ) : null}
 
     </motion.div>

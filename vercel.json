@@ -1,11 +1,13 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/(.GEMINI_API_KEY*)",
-      "destination": "/api"=(AQ.Ab8RN6IXDSBiCZogOH5iCuXLpl4TzJKjqGtVWUHSRzb-KK44aw)
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
